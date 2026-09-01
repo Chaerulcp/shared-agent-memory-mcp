@@ -17,7 +17,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { backupRelativePath, buildSyncManifest, conflictResolutionTarget, contentHash, isConflict, isSafeVaultRelativePath, type SyncManifest } from "./obsidian-conflict.js";
 import type { Memory } from "./store.js";
 
@@ -27,7 +27,11 @@ function manifestPath(): string { return join(vaultPath(), MANIFEST_FILE); }
 export function relativeManifestPath(vault: string, file: string): string {
   const root = vault.replace(/\\/g, "/").replace(/\/$/, "");
   const normalized = file.replace(/\\/g, "/");
-  return normalized.startsWith(`${root}/`) ? normalized.slice(root.length + 1) : normalized;
+  const rootLower = root.toLowerCase();
+  const normalizedLower = normalized.toLowerCase();
+  if (normalizedLower.startsWith(`${rootLower}/`)) return normalized.slice(root.length + 1);
+  const candidate = relative(root, normalized).replace(/\\/g, "/");
+  return !isAbsolute(candidate) && candidate !== "" && !candidate.startsWith("../") ? candidate : normalized;
 }
 
 function relativeVaultPath(file: string): string {

@@ -8,6 +8,25 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.2.2] - 2026-09-02
+
+Patch release fixing a Windows manifest portability regression.
+
+### Fixed
+
+- Synchronization now consistently stores relative paths in `.shared-agent-memory-sync.json`, including watcher-generated updates.
+- Windows path separators and case differences are normalized safely.
+- Added regression coverage for baseline and sync manifest paths.
+
+### Verification
+
+- 27 automated tests passed.
+- Real baseline test with a temporary Git vault passed.
+- Production sync completed for 46 files with zero conflicts.
+- Production manifest contains zero absolute paths.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+- Secret scan and `git diff --check` passed.
+
 ## [1.2.1] - 2026-09-02
 
 Patch release restoring relative-path portability in synchronization manifests.
