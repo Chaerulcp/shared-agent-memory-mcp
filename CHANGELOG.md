@@ -15,6 +15,7 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 ### Changed
 
 - Sync reports conflicts with exit code `2`; the original manually edited file is preserved.
+- Repeated detection of the same conflict reuses one `.conflict.md` copy instead of creating unbounded duplicates.
 
 [Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.0...HEAD
 

@@ -287,7 +287,7 @@ node dist/cli.js sync --dry-run
 The sync process records the SHA-256 hash of each successfully synchronized Markdown file in `.shared-agent-memory-sync.json` at the vault root. On a later sync, if a file differs from its last synchronized hash, the file is treated as manually edited:
 
 - The existing Obsidian file is preserved.
-- The current Notion version is written to a sibling file ending in `.conflict-<timestamp>.md`.
+- The current Notion version is written to a stable sibling file ending in `.conflict.md` (repeated syncs do not create duplicate conflict copies).
 - The CLI reports the conflict and exits with code `2`.
 - The watcher logs the conflict instead of silently overwriting the edit.
 

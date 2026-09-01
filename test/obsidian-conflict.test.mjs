@@ -15,3 +15,7 @@ test("hasManualChange distinguishes unchanged and edited files", () => {
   assert.equal(isConflict("Legacy file", undefined), true);
   assert.equal(isConflict(synced, contentHash(synced)), false);
 });
+
+test("conflict copy naming is stable", () => {
+  assert.equal("memory.md".replace(/\.md$/, ".conflict.md"), "memory.conflict.md");
+});

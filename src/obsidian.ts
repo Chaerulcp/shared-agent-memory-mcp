@@ -164,9 +164,9 @@ export function syncMemoryFile(m: Memory, force = false): { path?: string; confl
     const previous = manifest[m.id];
     const current = readFileSync(existing, "utf8");
     if (isConflict(current, previous?.hash)) {
-      const conflict = `${existing}.conflict-${Date.now()}.md`;
+      const conflict = `${existing}.conflict.md`;
       const body = toFrontmatter(m) + `# ${m.title}\n\n${m.content}\n`;
-      writeFileSync(conflict, body, "utf8");
+      if (!existsSync(conflict)) writeFileSync(conflict, body, "utf8");
       return { path: existing, conflict };
     }
   }
