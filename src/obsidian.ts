@@ -209,7 +209,7 @@ function findFileById(id: string): string | undefined {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
-        stack.push(full);
+        if (full !== join(root, ARCHIVE_DIR)) stack.push(full);
         continue;
       }
       if (!entry.name.endsWith(".md")) continue;
@@ -280,6 +280,9 @@ export function archiveMemoryFile(id: string, hard = false): void {
   const archiveDir = join(vaultPath(), ARCHIVE_DIR);
   mkdirSync(archiveDir, { recursive: true });
   renameSync(existing, join(archiveDir, existing.split(/[\\/]/).pop()!));
+  const manifest = readManifest();
+  delete manifest[id];
+  writeManifest(manifest);
 }
 
 function run(cmd: string, args: string[], cwd: string): Promise<string> {
