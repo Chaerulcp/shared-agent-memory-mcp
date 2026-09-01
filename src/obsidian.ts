@@ -17,7 +17,18 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { contentHash, isConflict, type SyncManifest } from "./obsidian-conflict.js";
 import type { Memory } from "./store.js";
+
+const MANIFEST_FILE = ".shared-agent-memory-sync.json";
+
+function manifestPath(): string { return join(vaultPath(), MANIFEST_FILE); }
+function readManifest(): SyncManifest {
+  try { return JSON.parse(readFileSync(manifestPath(), "utf8")) as SyncManifest; } catch { return {}; }
+}
+function writeManifest(manifest: SyncManifest): void {
+  writeFileSync(manifestPath(), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+}
 
 const DEFAULT_VAULT = "C:/path/to/your/ObsidianVault";
 const MEM_DIR = "memories";
@@ -144,6 +155,29 @@ export function upsertMemoryFile(m: Memory): string | undefined {
 }
 
 /** Arsipkan file memori (pindah ke memories/_archived/). */
+/** Sync a memory while preserving files changed since the previous sync. */
+export function syncMemoryFile(m: Memory, force = false): { path?: string; conflict?: string } {
+  if (!vaultEnabled()) return {};
+  const manifest = readManifest();
+  const existing = findFileById(m.id);
+  if (existing && !force) {
+    const previous = manifest[m.id];
+    const current = readFileSync(existing, "utf8");
+    if (isConflict(current, previous?.hash)) {
+      const conflict = `${existing}.conflict-${Date.now()}.md`;
+      const body = toFrontmatter(m) + `# ${m.title}\n\n${m.content}\n`;
+      writeFileSync(conflict, body, "utf8");
+      return { path: existing, conflict };
+    }
+  }
+  const path = upsertMemoryFile(m);
+  if (path) {
+    manifest[m.id] = { path, hash: contentHash(readFileSync(path, "utf8")) };
+    writeManifest(manifest);
+  }
+  return { path };
+}
+
 export function archiveMemoryFile(id: string, hard = false): void {
   if (!vaultEnabled()) return;
   const existing = findFileById(id);

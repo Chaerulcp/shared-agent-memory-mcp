@@ -57,8 +57,9 @@ Perintah:
        Arsipkan memori (default) atau buang ke trash Notion (--hard)
   export [--out file.json]
        Ekspor semua memori ke JSON
-  sync [--dry-run]
+  sync [--dry-run] [--force]
        Tinjau/sinkronkan perubahan Notion ke Obsidian
+       Konflik dipertahankan; --force menimpa file yang berubah manual
        (dry-run hanya membaca Notion, tanpa menulis file atau Git)
   watch [--interval N]
        Pantau Notion berkala (interval dalam detik; default 300)
@@ -381,10 +382,16 @@ async function main() {
 
     case "sync": {
       const dryRun = bool("dry-run");
-      const result = await syncNotionToObsidian(dryRun);
+      const force = bool("force");
+      const result = await syncNotionToObsidian(dryRun, force);
       console.log(dryRun
-        ? `${result.count} memori akan disinkronkan (dry-run; tidak ada file/Git yang diubah).`
-        : `${result.count} memori disinkronkan dari Notion ke Obsidian.`);
+        ? `${result.count} memori akan disinkronkan (dry-run; tidak ada file/Git/cache yang diubah).`
+        : `${result.count} file disinkronkan dari Notion ke Obsidian.`);
+      if (result.conflicts.length) {
+        console.error(`${result.conflicts.length} konflik terdeteksi; file manual dipertahankan:`);
+        for (const file of result.conflicts) console.error(`  ${file}`);
+        process.exitCode = 2;
+      }
       break;
     }
 
@@ -397,7 +404,8 @@ async function main() {
       const runSync = async () => {
         try {
           const result = await syncNotionToObsidian();
-          console.log(`[${new Date().toISOString()}] Sinkronisasi selesai: ${result.count} file.`);
+          console.log(`[${new Date().toISOString()}] Sinkronisasi selesai: ${result.count} file, ${result.conflicts.length} konflik.`);
+          for (const file of result.conflicts) console.error(`[${new Date().toISOString()}] Konflik dipertahankan: ${file}`);
         } catch (err) {
           console.error(`[${new Date().toISOString()}] Sinkronisasi gagal: ${errMsg(err)}`);
         }

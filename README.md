@@ -282,6 +282,32 @@ Preview a synchronization without writing files, Git, or the cache:
 node dist/cli.js sync --dry-run
 ```
 
+### Conflict protection
+
+The sync process records the SHA-256 hash of each successfully synchronized Markdown file in `.shared-agent-memory-sync.json` at the vault root. On a later sync, if a file differs from its last synchronized hash, the file is treated as manually edited:
+
+- The existing Obsidian file is preserved.
+- The current Notion version is written to a sibling file ending in `.conflict-<timestamp>.md`.
+- The CLI reports the conflict and exits with code `2`.
+- The watcher logs the conflict instead of silently overwriting the edit.
+
+Review the two files and resolve the content manually. To deliberately replace manual edits with the current Notion version, use:
+
+```powershell
+node dist/cli.js sync --force
+```
+
+`--force` should only be used after reviewing the affected files. The manifest is local derived state, can be deleted safely, and will be rebuilt by the next successful synchronization. Notion remains the source of truth; Obsidian edits are never imported into Notion automatically.
+
+The conflict manifest and conflict copies are kept in the Obsidian vault, not in this source repository.
+
+```text
+Notion version -> unchanged mirror file: update safely
+Notion version -> manually edited mirror: preserve edit + write conflict copy
+Notion version -> --force: overwrite mirror intentionally
+```
+
+
 For Windows auto-start, use the startup script in the user's Startup folder or create a Task Scheduler task with appropriate permissions. Do not claim Task Scheduler is configured unless the task has been verified successfully.
 
 ## Local SQLite FTS5 cache

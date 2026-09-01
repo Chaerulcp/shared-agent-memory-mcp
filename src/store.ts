@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client";
 import { loadConfig, normalizeId } from "./config.js";
-import { archiveMemoryFile, gitAutoSync, upsertMemoryFile } from "./obsidian.js";
+import { archiveMemoryFile, gitAutoSync, syncMemoryFile, upsertMemoryFile } from "./obsidian.js";
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
 import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
@@ -443,11 +443,12 @@ export async function deleteMemory(id: string, hard = false): Promise<void> {
   void gitAutoSync(`memory: hapus/arsipkan ${page_id.slice(0, 8)}`);
 }
 
-export async function syncNotionToObsidian(dryRun = false): Promise<{ count: number; synced: string[] }> {
+export async function syncNotionToObsidian(dryRun = false, force = false): Promise<{ count: number; synced: string[]; conflicts: string[] }> {
   const memories = await listAll();
   const synced: string[] = [];
+  const conflicts: string[] = [];
   if (dryRun) {
-    return { count: memories.length, synced: memories.map((memory) => memory.id) };
+    return { count: memories.length, synced: memories.map((memory) => memory.id), conflicts };
   }
   syncCacheForMemories(memories);
   for (const memory of memories) {
@@ -456,13 +457,14 @@ export async function syncNotionToObsidian(dryRun = false): Promise<{ count: num
       synced.push(memory.id);
       continue;
     }
-    const file = upsertMemoryFile(memory);
-    if (file) synced.push(file);
+    const result = syncMemoryFile(memory, force);
+    if (result.conflict) conflicts.push(result.conflict);
+    else if (result.path) synced.push(result.path);
   }
   if (synced.length > 0) {
     await gitAutoSync(`sync: perbarui ${synced.length} memori dari Notion`);
   }
-  return { count: synced.length, synced };
+  return { count: synced.length, synced, conflicts };
 }
 
 export async function listAll(): Promise<Memory[]> {

@@ -6,7 +6,17 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Obsidian conflict protection using a local SHA-256 synchronization manifest.
+- Conflict copies for manually edited mirror files instead of silent overwrites.
+- `sync --force` for deliberate replacement after review.
+
+### Changed
+
+- Sync reports conflicts with exit code `2`; the original manually edited file is preserved.
+
+[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.0...HEAD
 
 ## [1.1.0] - 2026-09-01
 
