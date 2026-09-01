@@ -123,6 +123,11 @@ server.registerTool(
       importance: importanceEnum.default("medium"),
       project: z.string().trim().max(120).optional().describe("Project/repository scope; optional for legacy databases"),
       allowDuplicate: z.boolean().default(false).describe("Explicitly allow a similar memory to be saved"),
+      source: z.string().trim().max(40).optional().describe("Origin: agent, user, notion, import, or system"),
+      confidence: z.enum(["high", "medium", "low"]).optional(),
+      verifiedAt: z.string().datetime().optional().describe("ISO timestamp when this memory was last verified"),
+      freshnessDays: z.number().int().min(0).max(3650).optional().describe("Days before this memory is considered stale"),
+      supersedes: z.string().optional().describe("ID of an older memory replaced by this one"),
     },
   },
   async (args) => {
@@ -136,6 +141,11 @@ server.registerTool(
         importance: args.importance,
         project: args.project,
         allowDuplicate: args.allowDuplicate,
+        source: args.source,
+        confidence: args.confidence,
+        verifiedAt: args.verifiedAt,
+        freshnessDays: args.freshnessDays,
+        supersedes: args.supersedes,
       });
       return ok({ saved: true, memory });
     } catch (err) {
@@ -165,6 +175,12 @@ server.registerTool(
       tags: tagsSchema.optional(),
       importance: importanceEnum.optional(),
       status: statusEnum.optional(),
+      project: z.string().trim().max(120).optional(),
+      source: z.string().trim().max(40).optional(),
+      confidence: z.enum(["high", "medium", "low"]).optional(),
+      verifiedAt: z.string().datetime().optional(),
+      freshnessDays: z.number().int().min(0).max(3650).optional(),
+      supersedes: z.string().optional(),
     },
   },
   async (args) => {

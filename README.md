@@ -106,6 +106,23 @@ Example:
 }
 ```
 
+### Provenance and freshness
+
+Memories dapat menyimpan metadata opsional: `source`, `confidence`, `verifiedAt`, `freshnessDays`, dan `supersedes`. Hasil memory akan memiliki `freshness` bernilai `fresh`, `stale`, atau `unknown`. Memory lama tanpa metadata tetap valid dan menghasilkan `unknown`.
+
+Gunakan `memory_update` untuk memperbarui `verifiedAt` setelah keputusan diperiksa ulang. `supersedes` dapat menunjuk ID memory lama yang sudah digantikan. Property metadata hanya ditulis jika tersedia pada schema database Notion, sehingga database lama tetap kompatibel.
+
+Contoh metadata:
+
+```json
+{
+  "source": "user",
+  "confidence": "high",
+  "verifiedAt": "2026-09-01T13:00:00.000Z",
+  "freshnessDays": 90
+}
+```
+
 ## Obsidian integration and automatic sync
 
 There are two supported flows:
