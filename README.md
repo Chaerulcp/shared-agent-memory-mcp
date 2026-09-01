@@ -139,6 +139,44 @@ Manual edits in Obsidian are not imported back into Notion. Notion remains the s
 - Use the minimum Notion page access required by the integration.
 - Review every memory before sharing a public repository or issue.
 
+## Setup wizard
+
+After cloning, run the read-only setup check:
+
+```powershell
+npm install
+npm run build
+npm run setup -- --dry-run
+```
+
+Run `npm run setup` to verify the local project, `.env`, Notion database, Obsidian vault, and Git remote. The command never prints credential values. It does not create a Notion database or modify agent configuration. To create a new Notion database, use the separate command:
+
+```powershell
+npm run init-db -- https://www.notion.so/your-parent-page
+```
+
+The setup wizard returns exit code `0` when all checks pass and `1` when action is required.
+
+## Development
+
+```powershell
+npm run build
+npm test
+npm run doctor
+```
+
+## Releases
+
+This project follows Semantic Versioning. See [CHANGELOG.md](CHANGELOG.md) for release history. Do not commit local `.env` files or generated `dist/` output.
+
+## Support and security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and credential handling.
+
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and consistency guarantees.
+
 ## Development
 
 ```powershell

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig, normalizeId } from "./config.js";
 import { acquireWatcherLock } from "./obsidian.js";
+import { runSetup } from "./setup.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -26,8 +27,10 @@ const HELP = `Agent Memory Notion — CLI
 Pemakaian: node dist/cli.js <perintah> [argumen] [--flags]
 
 Perintah:
+  setup [--dry-run]
+       Periksa project, .env, Notion, Obsidian, dan Git
   init <parent-page-url> [--title "Agent Memory"]
-       Membuat database memori di Notion dan menyimpan ID-nya ke .env
+       Membuat database di Notion dan menyimpan ID-nya ke .env
   doctor
        Periksa konfigurasi dan koneksi ke Notion
   search <query> [--agent X] [--category X] [--tag X] [--limit N] [--all] [--json]
@@ -175,6 +178,11 @@ async function main() {
     case "--help":
     case "-h": {
       console.log(HELP);
+      break;
+    }
+
+    case "setup": {
+      process.exitCode = await runSetup({ dryRun: bool("dry-run") });
       break;
     }
 
