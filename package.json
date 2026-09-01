@@ -1,6 +1,6 @@
 {
   "name": "shared-agent-memory-mcp",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "Memori bersama (shared memory) untuk AI coding agents — Cline, OpenCode, Claude Code, GitHub Copilot, Hermes — dengan penyimpanan di Notion",
   "type": "module",
   "main": "dist/index.js",

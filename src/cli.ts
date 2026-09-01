@@ -6,6 +6,7 @@ import { acquireWatcherLock, initSyncBaseline, listConflictFiles, resolveConflic
 import { runSetup } from "./setup.js";
 import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
+import { formatDoctorSummary, runDoctorSync } from "./doctor.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -33,8 +34,8 @@ Perintah:
        Periksa project, .env, Notion, Obsidian, dan Git
   init <parent-page-url> [--title "Agent Memory"]
        Membuat database di Notion dan menyimpan ID-nya ke .env
-  doctor
-       Periksa konfigurasi dan koneksi ke Notion
+  doctor [--sync]
+       Periksa konfigurasi dan koneksi ke Notion; --sync menjalankan health check lengkap
   cache rebuild
        Tarik semua memori Notion dan bangun ulang cache SQLite FTS5
   cache search <query> [--limit N] [--json]
@@ -227,6 +228,12 @@ async function main() {
     }
 
     case "doctor": {
+      if (bool("sync")) {
+        const summary = await runDoctorSync();
+        console.log(formatDoctorSummary(summary));
+        if (!summary.healthy) process.exitCode = 1;
+        break;
+      }
       const cfg = loadConfig();
       console.log("== Agent Memory Notion — doctor ==");
       console.log(

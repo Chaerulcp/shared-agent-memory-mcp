@@ -8,6 +8,24 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.3.0] - 2026-09-02
+
+Minor release adding synchronization diagnostics and recovery guidance.
+
+### Added
+
+- `doctor --sync` health checks for Notion, vault, manifest, conflicts, Git, watcher, and cache.
+- Machine-testable doctor health summary with a non-zero exit code when unhealthy.
+- Recovery runbook for stale locks, invalid manifests, conflicts, and cache rebuilds.
+
+### Verification
+
+- 30 automated tests passed.
+- Production `doctor --sync` reported `Overall: HEALTHY`.
+- Production sync completed for 49 memories with zero conflicts.
+- Manifest contained zero absolute paths.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+
 ## [1.2.3] - 2026-09-02
 
 Patch release fixing archived-memory mirror cleanup after a direct production lifecycle test.

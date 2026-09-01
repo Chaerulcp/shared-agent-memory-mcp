@@ -186,6 +186,7 @@ The executable is available after building as `node dist/cli.js` or through the 
 
 ```powershell
 node dist/cli.js doctor
+node dist/cli.js doctor --sync
 node dist/cli.js search "laravel deployment"
 node dist/cli.js search "deployment" --project crm --limit 10
 node dist/cli.js recent --limit 5
@@ -386,6 +387,26 @@ Check `OBSIDIAN_VAULT_PATH`, confirm the path is a Git repository, verify the re
 ### The watcher appears to do nothing on Windows
 
 The startup script intentionally runs hidden. Check `watcher.log`, verify that only one watcher is active, and inspect the lock file inside the configured vault.
+
+### Run the full synchronization health check
+
+Use the extended doctor command before or after maintenance:
+
+```powershell
+node dist/cli.js doctor --sync
+```
+
+It checks Notion configuration and connectivity, database access, record count, vault availability, manifest validity and absolute paths, active conflicts, Git cleanliness, watcher lock/PID, and cache freshness. The command exits with code `1` when any check fails and prints `Overall: HEALTHY` only when all checks pass.
+
+Recovery sequence:
+
+1. If the watcher check reports a stale PID, confirm the PID is not a running `dist/cli.js watch` process, then remove only the lock file.
+2. If the manifest is invalid or contains wrong paths, back up the vault and run `node dist/cli.js sync --init-baseline --force` only after reviewing the current files.
+3. If conflicts are reported, use `node dist/cli.js conflicts` and resolve each file with `--accept-notion` or `--keep-obsidian`.
+4. If the cache is stale or empty, run `node dist/cli.js cache rebuild`; the cache is disposable and Notion remains authoritative.
+5. Run `node dist/cli.js sync` and then repeat `node dist/cli.js doctor --sync`.
+
+Never delete production memory records merely to clear a diagnostic failure. Use a clearly labeled temporary smoke-test record for lifecycle testing, and verify the Notion, mirror, manifest, and Git state after every operation.
 
 ## Development
 
