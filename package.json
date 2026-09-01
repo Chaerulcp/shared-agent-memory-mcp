@@ -15,7 +15,8 @@
     "init-db": "node dist/cli.js init",
     "doctor": "node dist/cli.js doctor",
     "sync": "node dist/cli.js sync",
-    "watch": "node dist/cli.js watch --interval 300"
+    "watch": "node dist/cli.js watch --interval 300",
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "engines": {
     "node": ">=18"

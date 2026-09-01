@@ -269,9 +269,12 @@ export async function deleteMemory(id: string, hard = false): Promise<void> {
   void gitAutoSync(`memory: hapus/arsipkan ${page_id.slice(0, 8)}`);
 }
 
-export async function syncNotionToObsidian(): Promise<{ count: number; synced: string[] }> {
+export async function syncNotionToObsidian(dryRun = false): Promise<{ count: number; synced: string[] }> {
   const memories = await listAll();
   const synced: string[] = [];
+  if (dryRun) {
+    return { count: memories.length, synced: memories.map((memory) => memory.id) };
+  }
   for (const memory of memories) {
     if (memory.status === "archived") {
       archiveMemoryFile(memory.id);

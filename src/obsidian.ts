@@ -5,12 +5,15 @@
  */
 import { execFile } from "node:child_process";
 import {
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -28,6 +31,27 @@ export function vaultPath(): string {
 
 export function vaultEnabled(): boolean {
   return existsSync(vaultPath());
+}
+
+export function watcherLockPath(vault = vaultPath()): string {
+  return join(vault, ".shared-agent-memory-watch.lock");
+}
+
+export function acquireWatcherLock(vault = vaultPath()): () => void {
+  const lock = watcherLockPath(vault);
+  try {
+    const fd = openSync(lock, "wx");
+    writeFileSync(fd, `${process.pid}\n`, "utf8");
+    closeSync(fd);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error(`Watcher lain sedang berjalan: ${lock}`);
+    }
+    throw err;
+  }
+  return () => {
+    try { unlinkSync(lock); } catch { /* already removed */ }
+  };
 }
 
 function slugify(text: string, max = 60): string {

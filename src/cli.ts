@@ -2,6 +2,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig, normalizeId } from "./config.js";
+import { acquireWatcherLock } from "./obsidian.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -45,8 +46,9 @@ Perintah:
        Arsipkan memori (default) atau buang ke trash Notion (--hard)
   export [--out file.json]
        Ekspor semua memori ke JSON
-  sync
-       Sinkronkan perubahan Notion ke Obsidian, commit, dan push
+  sync [--dry-run]
+       Tinjau/sinkronkan perubahan Notion ke Obsidian
+       (dry-run hanya membaca Notion, tanpa menulis file atau Git)
   watch [--interval N]
        Pantau Notion berkala (interval dalam detik; default 300)
 
@@ -313,12 +315,18 @@ async function main() {
     }
 
     case "sync": {
-      const result = await syncNotionToObsidian();
-      console.log(`${result.count} memori disinkronkan dari Notion ke Obsidian.`);
+      const dryRun = bool("dry-run");
+      const result = await syncNotionToObsidian(dryRun);
+      console.log(dryRun
+        ? `${result.count} memori akan disinkronkan (dry-run; tidak ada file/Git yang diubah).`
+        : `${result.count} memori disinkronkan dari Notion ke Obsidian.`);
       break;
     }
 
     case "watch": {
+      const releaseLock = acquireWatcherLock();
+      process.once("SIGINT", releaseLock);
+      process.once("SIGTERM", releaseLock);
       const interval = Math.max(30, parseInt(str("interval") ?? "300", 10) || 300);
       console.log(`Memantau Notion setiap ${interval} detik. Tekan Ctrl+C untuk berhenti.`);
       const runSync = async () => {
