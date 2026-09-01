@@ -3,7 +3,12 @@ import { loadConfig, normalizeId } from "./config.js";
 import { archiveMemoryFile, gitAutoSync, upsertMemoryFile } from "./obsidian.js";
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
-import { cacheInput, createMemoryCache } from "./cache.js";
+import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
+
+function invalidateLocalCache(): void {
+  const cache = createMemoryCache();
+  try { cache.clear(); } finally { cache.close(); }
+}
 
 function rebuildLocalCache(memories: Memory[]): void {
   const cache = createMemoryCache();
@@ -298,11 +303,27 @@ export async function addMemory(input: AddMemoryInput): Promise<Memory> {
   });
   const memory = pageToMemory(res);
   upsertMemoryFile(memory);
+  invalidateLocalCache();
   void gitAutoSync(`memory(${memory.agent}): tambah "${memory.title.slice(0, 60)}"`);
   return memory;
 }
 
+function searchLocalCache(opts: SearchOptions): Memory[] | undefined {
+  if (!opts.query?.trim() || (opts.status ?? "active") !== "active" || opts.agent || opts.category || opts.tag) return undefined;
+  const cache = createMemoryCache();
+  try {
+    if (!cache.isFresh()) return undefined;
+    const rows = cache.search(opts.query, opts.project, opts.limit ?? 10);
+    const memories = rows.map(memoryFromCache).filter((memory): memory is Memory => Boolean(memory));
+    return memories.length === rows.length ? memories : undefined;
+  } finally {
+    cache.close();
+  }
+}
+
 export async function searchMemories(opts: SearchOptions = {}): Promise<Memory[]> {
+  const local = searchLocalCache(opts);
+  if (local !== undefined) return local;
   const and: any[] = [];
   const status = opts.status ?? "active";
   if (status !== "all") {
@@ -394,6 +415,7 @@ export async function updateMemory(id: string, patch: UpdateMemoryPatch): Promis
   } else {
     upsertMemoryFile(memory);
   }
+  invalidateLocalCache();
   void gitAutoSync(`memory(${memory.agent}): perbarui "${memory.title.slice(0, 60)}"`);
   return memory;
 }
@@ -412,6 +434,7 @@ export async function deleteMemory(id: string, hard = false): Promise<void> {
     await notion().pages.update({ page_id, archived: true } as any);
     archiveMemoryFile(page_id, false);
   }
+  invalidateLocalCache();
   void gitAutoSync(`memory: hapus/arsipkan ${page_id.slice(0, 8)}`);
 }
 

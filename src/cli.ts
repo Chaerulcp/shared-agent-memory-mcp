@@ -148,7 +148,7 @@ async function rebuildCache(): Promise<number> {
 
 function cacheSearch(query: string, limit: number): Memory[] {
   const cache = createMemoryCache();
-  try { return cache.search(query, limit) as Memory[]; }
+  try { return cache.search(query, undefined, limit) as Memory[]; }
   finally { cache.close(); }
 }
 

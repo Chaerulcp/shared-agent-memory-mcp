@@ -159,6 +159,12 @@ npm run watch
 
 Each polling cycle queries Notion, refreshes the local SQLite FTS5 cache, rewrites the corresponding Markdown files, runs `git add`, creates a commit only when files changed, and attempts `git push`. A failed push does not lose the local commit. `sync --dry-run` remains read-only and does not update the cache.
 
+### Hybrid search and cache consistency
+
+The MCP search path uses the local FTS5 cache only for a text query with active status when the snapshot is no older than five minutes. Project filtering is supported. Searches using agent, category, or tag filters, archived/all status, or an expired/missing cache query Notion directly. If cached rows do not contain the complete memory payload, the search also falls back to Notion. Notion remains the source of truth.
+
+`memory_add`, `memory_update`, and `memory_delete` clear the cache after a successful write. The next normal `sync` rebuilds it from Notion. This prevents a local cache from returning a known-stale result after a mutation.
+
 For Windows auto-start, create a Task Scheduler task that launches a PowerShell action such as:
 
 ```powershell
