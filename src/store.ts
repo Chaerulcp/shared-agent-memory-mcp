@@ -4,6 +4,7 @@ import { archiveMemoryFile, gitAutoSync, upsertMemoryFile } from "./obsidian.js"
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
 import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
+import { resolveProject } from "./project-context.js";
 
 function invalidateLocalCache(): void {
   const cache = createMemoryCache();
@@ -177,6 +178,7 @@ export interface SearchOptions {
   tag?: string;
   status?: string; // "active" (default) | "archived" | "all"
   project?: string;
+  currentProject?: boolean;
   limit?: number;
 }
 
@@ -278,8 +280,10 @@ export function pageToMemory(page: any): Memory {
 /* ---------------- operasi memori ---------------- */
 
 export async function addMemory(input: AddMemoryInput): Promise<Memory> {
-  if (!input.allowDuplicate) {
-    const duplicates = await findDuplicates(input);
+  const project = resolveProject(input.project);
+  const effectiveInput = { ...input, project };
+  if (!effectiveInput.allowDuplicate) {
+    const duplicates = await findDuplicates(effectiveInput);
     if (duplicates.length > 0) throw new DuplicateMemoryError(duplicates.slice(0, 5));
   }
   const schema = await databaseProperties();
@@ -293,7 +297,7 @@ export async function addMemory(input: AddMemoryInput): Promise<Memory> {
       Tags: multiSelectProp(input.tags ?? []),
       Importance: selectProp(input.importance ?? "medium"),
       Status: selectProp("active"),
-      ...optionalProjectProperty(input.project, schema),
+      ...optionalProjectProperty(project, schema),
       ...optionalProperty("Source", normalizeProvenance(input).source, schema),
       ...optionalProperty("Confidence", normalizeProvenance(input).confidence, schema),
       ...optionalDateProperty("Verified At", input.verifiedAt, schema),
@@ -322,6 +326,7 @@ function searchLocalCache(opts: SearchOptions): Memory[] | undefined {
 }
 
 export async function searchMemories(opts: SearchOptions = {}): Promise<Memory[]> {
+  opts = { ...opts, project: opts.project ?? (opts.currentProject ? resolveProject() : undefined) };
   const local = searchLocalCache(opts);
   if (local !== undefined) return local;
   const and: any[] = [];

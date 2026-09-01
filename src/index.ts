@@ -54,12 +54,13 @@ server.registerTool(
       category: categoryEnum.optional(),
       tag: z.string().optional().describe("Exact tag name to filter by"),
       project: z.string().trim().max(120).optional().describe("Only memories for this project/repository"),
+      currentProject: z.boolean().default(false).describe("Use the current Git repository as project scope when project is omitted"),
       limit: z.number().int().min(1).max(25).default(10),
     },
   },
   async (args) => {
     try {
-      const results = await searchMemories({ ...args });
+      const results = await searchMemories({ ...args, currentProject: args.currentProject });
       return ok({ count: results.length, results });
     } catch (err) {
       return fail(err);

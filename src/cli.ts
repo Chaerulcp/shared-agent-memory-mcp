@@ -5,6 +5,7 @@ import { loadConfig, normalizeId } from "./config.js";
 import { acquireWatcherLock } from "./obsidian.js";
 import { runSetup } from "./setup.js";
 import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
+import { resolveProject } from "./project-context.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -40,13 +41,13 @@ Perintah:
        Cari cache lokal (jalankan cache rebuild terlebih dahulu)
   cache clear
        Hapus seluruh cache lokal
-  search <query> [--agent X] [--category X] [--tag X] [--limit N] [--all] [--json]
-       Cari memori Notion secara live; cache tidak menggantikan source of truth.
+  search <query> [--project X | --current-project] [--agent X] [--category X] [--tag X] [--limit N] [--all] [--json]
+       Cari memori dengan scope project opsional.
   recent [--limit N] [--agent X] [--json]
        Memori terbaru
   add --title "..." --content "..." [--content-file f] [--agent X]
-      [--category X] [--tags a,b] [--importance high|medium|low]
-       Simpan memori baru
+      [--category X] [--tags a,b] [--importance high|medium|low] [--project X]
+       Simpan memori baru (project otomatis dari Git bila tidak diset)
   get <id> [--json]
        Lihat satu memori
   update <id> [--title] [--content] [--agent] [--category] [--tags]
@@ -124,6 +125,8 @@ function printMemory(m: Memory, opts: { full?: boolean } = {}) {
     `  agent    : ${m.agent} | kategori: ${m.category} | importance: ${m.importance} | status: ${m.status}`
   );
   if (m.tags.length) console.log(`  tags     : ${m.tags.join(", ")}`);
+  if (m.project) console.log(`  project  : ${m.project}`);
+  if (m.freshness) console.log(`  freshness: ${m.freshness}`);
   console.log(`  updated  : ${m.updatedAt}`);
   if (opts.full) console.log(`  isi      :\n${m.content}`);
   else console.log(`  isi      : ${short(m.content, 160)}`);
@@ -288,6 +291,8 @@ async function main() {
         agent: enumCheck(str("agent"), AGENTS, "agent"),
         category: enumCheck(str("category"), CATEGORIES, "category"),
         tag: str("tag"),
+        project: str("project"),
+        currentProject: bool("current-project"),
         status: bool("all") ? "all" : undefined,
         limit: limitFlag() ?? 10,
       });
@@ -318,6 +323,7 @@ async function main() {
         category: enumCheck(str("category"), CATEGORIES, "category") ?? "other",
         tags: parseTags(str("tags")),
         importance: enumCheck(str("importance"), IMPORTANCE, "importance") ?? "medium",
+        project: resolveProject(str("project")),
       });
       console.log("Memori tersimpan.\n");
       printMemory(mem, { full: true });

@@ -202,6 +202,19 @@ Use `--json` for machine-readable output where supported. Long content can be su
 
 Use a stable repository or project identifier, not a temporary branch name, for `project`. This keeps memories from unrelated projects separate.
 
+When `project` is omitted from `memory_add`, the server resolves it automatically in this order: an explicit `AGENT_PROJECT` environment variable, the GitHub `origin` remote as `owner/repository`, or the local Git root directory name. If the current directory is not a Git repository, the project field remains empty. An explicit `project` value always wins.
+
+For `memory_search`, automatic scope is opt-in. Set `currentProject: true` in the MCP request or pass `--current-project` to the CLI. A supplied `project` value has priority over automatic detection; without either option, search remains global for backward compatibility.
+
+To force a stable project name when an agent runs from a different working directory, set this local environment variable:
+
+```dotenv
+AGENT_PROJECT=acme/crm
+```
+
+The resolver only reads local Git metadata. It does not execute remote URLs or inspect repository contents.
+
+
 ```json
 {
   "title": "Use Laravel 12",
