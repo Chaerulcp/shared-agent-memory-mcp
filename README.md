@@ -303,7 +303,15 @@ The sync process records the SHA-256 hash of each successfully synchronized Mark
 - The CLI reports the conflict and exits with code `2`.
 - The watcher logs the conflict instead of silently overwriting the edit.
 
-Review the two files and resolve the content manually. To deliberately replace manual edits with the current Notion version, use:
+Review the two files and resolve them explicitly:
+
+```powershell
+node dist/cli.js conflicts
+node dist/cli.js resolve memories/category/file.md.conflict.md --accept-notion
+node dist/cli.js resolve memories/category/file.md.conflict.md --keep-obsidian
+```
+
+`--accept-notion` backs up the existing Obsidian file under `backups/<timestamp>/` before applying the conflict copy. `--keep-obsidian` removes only the conflict copy and preserves the manual file. Paths are restricted to vault-relative `memories/` paths. To deliberately replace manual edits with the current Notion version, use:
 
 ```powershell
 node dist/cli.js sync --force

@@ -6,7 +6,17 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Timestamped Obsidian backups before replacing changed files during sync.
+- `conflicts` command to list unresolved conflict copies.
+- `resolve` command with explicit `--accept-notion` and `--keep-obsidian` actions.
+- Path validation that restricts conflict resolution to vault-relative memory files.
+
+### Safety
+
+- Accepting the Notion version preserves the existing Obsidian file in `backups/<timestamp>/` before replacement.
+- Keeping the Obsidian version removes only the conflict copy.
 
 ## [1.1.2] - 2026-09-01
 

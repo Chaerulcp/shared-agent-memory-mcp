@@ -6,6 +6,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import {
   closeSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   openSync,
@@ -17,7 +18,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { buildSyncManifest, contentHash, isConflict, type SyncManifest } from "./obsidian-conflict.js";
+import { backupRelativePath, buildSyncManifest, conflictResolutionTarget, contentHash, isConflict, isSafeVaultRelativePath, type SyncManifest } from "./obsidian-conflict.js";
 import type { Memory } from "./store.js";
 
 const MANIFEST_FILE = ".shared-agent-memory-sync.json";
@@ -28,6 +29,50 @@ function relativeVaultPath(file: string): string {
   const normalized = file.replace(/\\/g, "/");
   return normalized.startsWith(`${root}/`) ? normalized.slice(root.length + 1) : normalized;
 }
+
+function backupFile(file: string): string {
+  const relative = relativeVaultPath(file);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const target = join(vaultPath(), backupRelativePath(relative, stamp));
+  mkdirSync(join(target, ".."), { recursive: true });
+  copyFileSync(file, target);
+  return target;
+}
+
+export function listConflictFiles(): string[] {
+  if (!vaultEnabled()) return [];
+  const root = join(vaultPath(), MEM_DIR);
+  const out: string[] = [];
+  if (!existsSync(root)) return out;
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { stack.push(full); continue; }
+      if (entry.name.endsWith(".conflict.md")) out.push(relativeVaultPath(full));
+    }
+  }
+  return out.sort();
+}
+
+export function resolveConflict(conflictFile: string, action: "accept-notion" | "keep-obsidian"): { target: string; backup?: string } {
+  const relative = conflictFile.replace(/\\/g, "/");
+  if (!isSafeVaultRelativePath(relative) || !relative.startsWith(`${MEM_DIR}/`) || !relative.endsWith(".conflict.md")) throw new Error("Conflict path tidak valid");
+  const conflict = join(vaultPath(), relative);
+  const targetRelative = conflictResolutionTarget(relative);
+  const target = join(vaultPath(), targetRelative);
+  if (!existsSync(conflict) || !existsSync(target)) throw new Error("Conflict atau file target tidak ditemukan");
+  if (action === "accept-notion") {
+    const backup = backupFile(target);
+    copyFileSync(conflict, target);
+    rmSync(conflict);
+    return { target, backup };
+  }
+  rmSync(conflict);
+  return { target };
+}
+
 function readManifest(): SyncManifest {
   try { return JSON.parse(readFileSync(manifestPath(), "utf8")) as SyncManifest; } catch { return {}; }
 }
@@ -204,9 +249,13 @@ export function syncMemoryFile(m: Memory, force = false): { path?: string; confl
       return { path: existing, conflict };
     }
   }
+  if (existing && existsSync(existing)) {
+    const current = readFileSync(existing, "utf8");
+    if (current !== body) backupFile(existing);
+  }
   const path = upsertMemoryFile(m);
   if (path) {
-    manifest[m.id] = { path, hash: contentHash(readFileSync(path, "utf8")) };
+    manifest[m.id] = { path: relativeVaultPath(path), hash: contentHash(readFileSync(path, "utf8")) };
     writeManifest(manifest);
   }
   return { path };

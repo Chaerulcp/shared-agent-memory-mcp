@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig, loadDotEnv, normalizeId } from "./config.js";
-import { acquireWatcherLock, initSyncBaseline } from "./obsidian.js";
+import { acquireWatcherLock, initSyncBaseline, listConflictFiles, resolveConflict } from "./obsidian.js";
 import { runSetup } from "./setup.js";
 import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
@@ -62,6 +62,10 @@ Perintah:
        --init-baseline membuat manifest dari file existing tanpa Notion
        Konflik dipertahankan; --force menimpa file yang berubah manual
        (dry-run hanya membaca Notion, tanpa menulis file atau Git)
+  conflicts [--json]
+       Daftar conflict copy Obsidian yang belum diselesaikan
+  resolve <memories/...md.conflict.md> --accept-notion | --keep-obsidian
+       Selesaikan satu conflict; accept-notion membuat backup file asli
   watch [--interval N]
        Pantau Notion berkala (interval dalam detik; default 300)
 
@@ -400,6 +404,25 @@ async function main() {
         for (const file of result.conflicts) console.error(`  ${file}`);
         process.exitCode = 2;
       }
+      break;
+    }
+
+    case "conflicts": {
+      const results = listConflictFiles();
+      if (json) console.log(JSON.stringify(results, null, 2));
+      else if (!results.length) console.log("Tidak ada conflict Obsidian.");
+      else results.forEach((file) => console.log(file));
+      break;
+    }
+
+    case "resolve": {
+      const file = positional[1];
+      if (!file) throw new Error("Path conflict wajib diisi.");
+      const accept = bool("accept-notion");
+      const keep = bool("keep-obsidian");
+      if (accept === keep) throw new Error("Pilih tepat satu: --accept-notion atau --keep-obsidian.");
+      const result = resolveConflict(file, accept ? "accept-notion" : "keep-obsidian");
+      console.log(accept ? `Versi Notion diterapkan. Backup: ${result.backup}` : "Versi Obsidian dipertahankan.");
       break;
     }
 
