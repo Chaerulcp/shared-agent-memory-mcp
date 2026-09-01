@@ -6,18 +6,43 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [1.1.1] - 2026-09-01
+
+Patch release that adds safe Obsidian conflict handling and production baseline support without changing the `v1.1.0` tag.
+
 ### Added
 
 - Obsidian conflict protection using a local SHA-256 synchronization manifest.
+- `sync --init-baseline` to record existing mirror files without calling Notion or modifying Markdown.
 - Conflict copies for manually edited mirror files instead of silent overwrites.
 - `sync --force` for deliberate replacement after review.
+- Stable `.conflict.md` conflict filenames so repeated watcher cycles do not create unbounded duplicates.
+- CLI startup now loads the project `.env` before resolving the Obsidian vault path.
 
 ### Changed
 
 - Sync reports conflicts with exit code `2`; the original manually edited file is preserved.
-- Repeated detection of the same conflict reuses one `.conflict.md` copy instead of creating unbounded duplicates.
+- Baseline manifest entries use relative paths rather than personal absolute filesystem paths.
+- Existing vaults without a baseline are handled conservatively and require explicit `--force` to overwrite existing files.
 
-[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.0...HEAD
+### Compatibility
+
+- Notion remains the source of truth; the manifest and Obsidian mirror are derived data.
+- Existing Notion databases and clients remain supported.
+- `v1.1.0` remains unchanged and its tag continues to point to the original release commit.
+
+### Verification
+
+- 23 automated tests passed.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+- Credential-pattern scan passed.
+- Production vault baseline created for 43 memory files after a verified backup.
+- Obsidian vault working tree remained clean after the baseline commit.
+
+[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.1
 
 ## [1.1.0] - 2026-09-01
 
