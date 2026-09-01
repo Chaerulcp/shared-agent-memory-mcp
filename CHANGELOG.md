@@ -2,15 +2,22 @@
 
 All notable changes to this project are documented here.
 
-The project follows Semantic Versioning. Unreleased changes are listed first. The `v1.0.0` release is the stable baseline; later improvements are currently on the `main` branch until the next release is published.
+The project follows Semantic Versioning. The `v1.1.0` release includes the post-baseline reliability, retrieval, setup, and project-context improvements.
 
 ## [Unreleased]
+
+No unreleased changes.
+
+## [1.1.0] - 2026-09-01
+
+Post-baseline stability and retrieval release.
 
 ### Added
 
 - Safe setup wizard with read-only `--dry-run` mode.
 - Duplicate detection before `memory_add`, with an explicit duplicate override.
 - Optional project and repository scope for memories and searches.
+- Automatic project context detection from `AGENT_PROJECT` or Git metadata.
 - Optional provenance and freshness metadata.
 - Local SQLite FTS5 cache backed by `better-sqlite3`.
 - Hybrid search with a conservative fallback to live Notion search.
@@ -27,6 +34,7 @@ The project follows Semantic Versioning. Unreleased changes are listed first. Th
 
 - Existing Notion databases without optional `Project`, provenance, or freshness properties remain usable.
 - Notion remains the source of truth; the SQLite cache and Obsidian mirror are derived data.
+- Automatic search scoping is opt-in to preserve global-search behavior for existing clients.
 
 ## [1.0.0] - 2026-09-01
 
