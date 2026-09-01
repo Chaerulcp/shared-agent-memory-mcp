@@ -6,6 +6,12 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [1.2.0] - 2026-09-02
+
+Stable feature release for operationally safe Obsidian synchronization.
+
 ### Added
 
 - Timestamped Obsidian backups before replacing changed files during sync.
@@ -17,6 +23,18 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 - Accepting the Notion version preserves the existing Obsidian file in `backups/<timestamp>/` before replacement.
 - Keeping the Obsidian version removes only the conflict copy.
+- Notion remains the source of truth; no automatic Obsidian-to-Notion import was added.
+
+### Verification
+
+- 26 automated tests passed.
+- Backup and both conflict resolution paths passed real filesystem integration tests.
+- Unsafe path traversal was rejected.
+- Production dry-run detected 46 memories without changing files, Git, or cache.
+- Production conflict listing returned zero unresolved conflicts.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+- Credential-pattern scan and `git diff --check` passed.
+- GitHub Actions CI passed.
 
 ## [1.1.2] - 2026-09-01
 
