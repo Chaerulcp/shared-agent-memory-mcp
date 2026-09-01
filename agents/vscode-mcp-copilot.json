@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "notion-memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "your_notion_token",
+        "NOTION_DATABASE_ID": "GANTI_DENGAN_DATABASE_ID"
+      }
+    }
+  }
+}

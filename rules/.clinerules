@@ -1,0 +1,24 @@
+# Shared Agent Memory (Notion) — for Cline
+
+This project uses a shared long-term memory stored in Notion via the MCP server `notion-memory`
+(shared with Claude Code, OpenCode, GitHub Copilot, Hermes).
+
+Tools: memory_search, memory_recent, memory_get, memory_add, memory_update, memory_delete.
+CLI fallback: node C:/path/to/shared-agent-memory-mcp/dist/cli.js search|add|get|update|delete
+
+READ before work:
+1. At task start run memory_search with task keywords (feature, error message, technology).
+2. Optionally memory_recent (limit 5).
+3. Apply saved preferences/conventions/decisions; do not re-ask saved information.
+
+WRITE when durable:
+Save via memory_add when the user states a preference, a decision is made, a convention is set,
+a non-obvious bug is fixed (root cause + fix), or environment knowledge is learned.
+Never store secrets/tokens.
+
+Rules:
+- title short + searchable (<= 80 chars); content 1-5 sentences with real context
+- agent = "cline" (or "shared" for universal rules)
+- category: preference | decision | convention | context | bugfix | task | other
+- importance: high | medium | low
+- Update existing memories instead of creating duplicates.

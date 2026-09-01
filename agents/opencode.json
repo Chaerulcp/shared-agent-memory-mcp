@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "notion-memory": {
+      "type": "local",
+      "command": ["node", "C:/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "enabled": true,
+      "environment": {
+        "NOTION_TOKEN": "your_notion_token",
+        "NOTION_DATABASE_ID": "GANTI_DENGAN_DATABASE_ID"
+      }
+    }
+  }
+}
