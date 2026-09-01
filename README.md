@@ -10,7 +10,8 @@ This project exposes a Model Context Protocol (MCP) server and a CLI for storing
 - CLI fallback for agents without MCP support
 - Notion database storage
 - Optional fire-and-forget Obsidian Vault dual-write
-- Agent attribution, categories, tags, importance, and archive status
+- Agent attribution, categories, tags, importance, project scope, and archive status
+- Duplicate detection before `memory_add`, with explicit override when needed
 - Explicit validation for memory titles and content
 - No credentials committed to the repository
 
@@ -84,6 +85,25 @@ node dist/cli.js add --title "Use plan before implementation" --content "Review 
 node dist/cli.js get <id>
 node dist/cli.js update <id> --status archived
 node dist/cli.js delete <id>
+```
+
+### Project scope and duplicate protection
+
+`memory_add` accepts an optional `project` value, such as a repository name or stable project identifier. `memory_search` accepts the same value to limit results to that project. The `Project` property is added automatically to databases created by this project; existing databases without that property remain compatible.
+
+Before saving, the server compares the new title and content with active memories in the same project. If a likely duplicate is found, it returns the matching candidates instead of creating another page. Prefer `memory_update` using the candidate ID. Set `allowDuplicate: true` only when the new memory is intentionally separate.
+
+Example:
+
+```json
+{
+  "title": "Use Laravel 12",
+  "content": "The CRM project uses Laravel 12 and Vite.",
+  "agent": "shared",
+  "category": "convention",
+  "project": "crm",
+  "allowDuplicate": false
+}
 ```
 
 ## Obsidian integration and automatic sync

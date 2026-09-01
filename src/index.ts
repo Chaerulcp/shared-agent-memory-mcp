@@ -12,6 +12,7 @@ import {
   getMemory,
   searchMemories,
   updateMemory,
+  DuplicateMemoryError,
 } from "./store.js";
 
 const server = new McpServer({
@@ -52,6 +53,7 @@ server.registerTool(
       agent: agentEnum.optional().describe("Only memories saved by this agent"),
       category: categoryEnum.optional(),
       tag: z.string().optional().describe("Exact tag name to filter by"),
+      project: z.string().trim().max(120).optional().describe("Only memories for this project/repository"),
       limit: z.number().int().min(1).max(25).default(10),
     },
   },
@@ -119,6 +121,8 @@ server.registerTool(
       category: categoryEnum.default("other"),
       tags: tagsSchema.optional().describe("Lowercase tags, e.g. ['typescript','ui','deploy']"),
       importance: importanceEnum.default("medium"),
+      project: z.string().trim().max(120).optional().describe("Project/repository scope; optional for legacy databases"),
+      allowDuplicate: z.boolean().default(false).describe("Explicitly allow a similar memory to be saved"),
     },
   },
   async (args) => {
@@ -130,9 +134,17 @@ server.registerTool(
         category: args.category,
         tags: args.tags ?? [],
         importance: args.importance,
+        project: args.project,
+        allowDuplicate: args.allowDuplicate,
       });
       return ok({ saved: true, memory });
     } catch (err) {
+      if (err instanceof DuplicateMemoryError) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ saved: false, duplicate: true, message: err.message, candidates: err.candidates }, null, 2) }],
+          isError: true,
+        };
+      }
       return fail(err);
     }
   }

@@ -1,6 +1,39 @@
 import { Client } from "@notionhq/client";
 import { loadConfig, normalizeId } from "./config.js";
 import { archiveMemoryFile, gitAutoSync, upsertMemoryFile } from "./obsidian.js";
+import { findDuplicateCandidates } from "./memory-quality.js";
+
+export class DuplicateMemoryError extends Error {
+  candidates: Memory[];
+
+  constructor(candidates: Memory[]) {
+    super(`Memory serupa ditemukan (${candidates.length}). Gunakan memory_update atau allow_duplicate=true.`);
+    this.name = "DuplicateMemoryError";
+    this.candidates = candidates;
+  }
+}
+
+async function databaseProperties(): Promise<Record<string, any>> {
+  const db: any = await notion().databases.retrieve({ database_id: databaseId() });
+  return db.properties ?? {};
+}
+
+function optionalProjectProperty(project?: string, properties?: Record<string, any>) {
+  if (!project || !properties?.Project) return {};
+  const schema = properties.Project;
+  if (schema.rich_text) return { Project: richTextProp(project) };
+  if (schema.select) return { Project: selectProp(project) };
+  return {};
+}
+
+function projectName(prop: any): string {
+  return prop?.select?.name ?? plainText(prop?.rich_text);
+}
+
+async function findDuplicates(input: AddMemoryInput): Promise<Memory[]> {
+  const existing = await searchMemories({ status: "active", limit: 100 });
+  return findDuplicateCandidates(input, existing, 0.55) as Memory[];
+}
 
 export const AGENTS = [
   "cline",
@@ -37,6 +70,7 @@ export interface Memory {
   url: string;
   createdAt: string;
   updatedAt: string;
+  project?: string;
 }
 
 export interface AddMemoryInput {
@@ -46,6 +80,8 @@ export interface AddMemoryInput {
   category?: string;
   tags?: string[];
   importance?: string;
+  project?: string;
+  allowDuplicate?: boolean;
 }
 
 export interface UpdateMemoryPatch {
@@ -64,6 +100,7 @@ export interface SearchOptions {
   category?: string;
   tag?: string;
   status?: string; // "active" (default) | "archived" | "all"
+  project?: string;
   limit?: number;
 }
 
@@ -149,12 +186,18 @@ export function pageToMemory(page: any): Memory {
     url: page.url ?? "",
     createdAt: page.created_time ?? "",
     updatedAt: page.last_edited_time ?? "",
+    project: projectName(p["Project"]),
   };
 }
 
 /* ---------------- operasi memori ---------------- */
 
 export async function addMemory(input: AddMemoryInput): Promise<Memory> {
+  if (!input.allowDuplicate) {
+    const duplicates = await findDuplicates(input);
+    if (duplicates.length > 0) throw new DuplicateMemoryError(duplicates.slice(0, 5));
+  }
+  const schema = await databaseProperties();
   const res = await notion().pages.create({
     parent: { database_id: databaseId() },
     properties: {
@@ -165,6 +208,7 @@ export async function addMemory(input: AddMemoryInput): Promise<Memory> {
       Tags: multiSelectProp(input.tags ?? []),
       Importance: selectProp(input.importance ?? "medium"),
       Status: selectProp("active"),
+      ...optionalProjectProperty(input.project, schema),
     } as any,
   });
   const memory = pageToMemory(res);
@@ -182,6 +226,14 @@ export async function searchMemories(opts: SearchOptions = {}): Promise<Memory[]
   if (opts.agent) and.push({ property: "Agent", select: { equals: opts.agent } });
   if (opts.category) and.push({ property: "Category", select: { equals: opts.category } });
   if (opts.tag) and.push({ property: "Tags", multi_select: { contains: opts.tag } });
+  if (opts.project) {
+    const schema = await databaseProperties();
+    const projectSchema = schema.Project;
+    if (!projectSchema) return [];
+    if (projectSchema.select) and.push({ property: "Project", select: { equals: opts.project } });
+    else if (projectSchema.rich_text) and.push({ property: "Project", rich_text: { contains: opts.project } });
+    else return [];
+  }
 
   const q = opts.query?.trim();
   if (q) {
@@ -324,6 +376,7 @@ export async function createMemoryDatabase(
       Tags: { multi_select: {} },
       Importance: { select: { options: IMPORTANCE.map((name) => ({ name })) } },
       Status: { select: { options: STATUSES.map((name) => ({ name })) } },
+      Project: { rich_text: {} },
       Created: { created_time: {} },
       Updated: { last_edited_time: {} },
     } as any,
