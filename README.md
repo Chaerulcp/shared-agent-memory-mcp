@@ -17,7 +17,7 @@ This project exposes a Model Context Protocol (MCP) server and a CLI for storing
 
 ## Requirements
 
-- Node.js 18 or newer
+- Node.js 22 or newer (the local cache uses `better-sqlite3` with SQLite FTS5)
 - A Notion integration and a database shared with that integration
 - Optional: an Obsidian Vault initialized as a Git repository for dual-write sync
 

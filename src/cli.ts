@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { loadConfig, normalizeId } from "./config.js";
 import { acquireWatcherLock } from "./obsidian.js";
 import { runSetup } from "./setup.js";
+import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -33,8 +34,14 @@ Perintah:
        Membuat database di Notion dan menyimpan ID-nya ke .env
   doctor
        Periksa konfigurasi dan koneksi ke Notion
+  cache rebuild
+       Tarik semua memori Notion dan bangun ulang cache SQLite FTS5
+  cache search <query> [--limit N] [--json]
+       Cari cache lokal (jalankan cache rebuild terlebih dahulu)
+  cache clear
+       Hapus seluruh cache lokal
   search <query> [--agent X] [--category X] [--tag X] [--limit N] [--all] [--json]
-       Cari memori
+       Cari memori Notion secara live; cache tidak menggantikan source of truth.
   recent [--limit N] [--agent X] [--json]
        Memori terbaru
   add --title "..." --content "..." [--content-file f] [--agent X]
@@ -132,6 +139,29 @@ function parseTags(raw: string | undefined): string[] | undefined {
     .filter(Boolean);
 }
 
+async function rebuildCache(): Promise<number> {
+  const memories = await listAll();
+  const cache = createMemoryCache();
+  try { cache.replaceAll(memories.map(cacheInput)); return memories.length; }
+  finally { cache.close(); }
+}
+
+function cacheSearch(query: string, limit: number): Memory[] {
+  const cache = createMemoryCache();
+  try { return cache.search(query, limit) as Memory[]; }
+  finally { cache.close(); }
+}
+
+function clearCache(): void {
+  const cache = createMemoryCache();
+  try { cache.clear(); } finally { cache.close(); }
+}
+
+function cacheCount(): number {
+  const cache = createMemoryCache();
+  try { return cache.count(); } finally { cache.close(); }
+}
+
 function upsertEnvVar(key: string, value: string) {
   const file = join(process.cwd(), ".env");
   let content = existsSync(file) ? readFileSync(file, "utf8") : "";
@@ -211,6 +241,27 @@ async function main() {
         const db = await checkDatabase();
         console.log(`Database           : ${db.ok ? "OK" : "GAGAL"} — ${db.message}`);
         if (!db.ok) process.exitCode = 1;
+      }
+      break;
+    }
+
+    case "cache": {
+      const action = positional[1] ?? "status";
+      if (action === "rebuild") {
+        const count = await rebuildCache();
+        console.log(`${count} memori diindeks ke cache FTS5: ${cachePath()}`);
+      } else if (action === "search") {
+        const query = positional.slice(2).join(" ") || str("query") || "";
+        if (!query) throw new Error('Query cache wajib diisi: node dist/cli.js cache search "kata kunci"');
+        const results = cacheSearch(query, limitFlag() ?? 25);
+        output(results);
+      } else if (action === "clear") {
+        clearCache();
+        console.log(`Cache FTS5 dihapus: ${cachePath()}`);
+      } else if (action === "status") {
+        console.log(`Cache FTS5: ${cacheCount()} memori (${cachePath()})`);
+      } else {
+        throw new Error("Aksi cache tidak valid. Pilihan: rebuild, search, clear, status");
       }
       break;
     }
