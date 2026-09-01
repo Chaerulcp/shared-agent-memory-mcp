@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { contentHash, hasManualChange, isConflict } from "../dist/obsidian-conflict.js";
+import { buildSyncManifest, contentHash, hasManualChange, isConflict } from "../dist/obsidian-conflict.js";
 
 test("contentHash is deterministic and changes with content", () => {
   assert.equal(contentHash("same"), contentHash("same"));
@@ -18,4 +18,9 @@ test("hasManualChange distinguishes unchanged and edited files", () => {
 
 test("conflict copy naming is stable", () => {
   assert.equal("memory.md".replace(/\.md$/, ".conflict.md"), "memory.conflict.md");
+});
+
+test("buildSyncManifest hashes each existing file", () => {
+  const manifest = buildSyncManifest([{ id: "1", path: "memories/a.md", content: "A" }]);
+  assert.deepEqual(manifest, { "1": { path: "memories/a.md", hash: contentHash("A") } });
 });

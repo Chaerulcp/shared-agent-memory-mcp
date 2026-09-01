@@ -2,6 +2,13 @@ import { createHash } from "node:crypto";
 
 export type SyncManifest = Record<string, { path: string; hash: string }>;
 
+export function buildSyncManifest(entries: Array<{ id: string; path: string; content: string }>): SyncManifest {
+  return Object.fromEntries(entries.map((entry) => [entry.id, {
+    path: entry.path,
+    hash: contentHash(entry.content),
+  }]));
+}
+
 export function contentHash(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }

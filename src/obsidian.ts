@@ -3,7 +3,7 @@
  * Setiap memori Notion juga ditulis sebagai file .md di vault agar
  * Obsidian menjadi sumber pengetahuan kedua yang bisa dibaca semua agent.
  */
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
@@ -17,17 +17,51 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { contentHash, isConflict, type SyncManifest } from "./obsidian-conflict.js";
+import { buildSyncManifest, contentHash, isConflict, type SyncManifest } from "./obsidian-conflict.js";
 import type { Memory } from "./store.js";
 
 const MANIFEST_FILE = ".shared-agent-memory-sync.json";
 
 function manifestPath(): string { return join(vaultPath(), MANIFEST_FILE); }
+function relativeVaultPath(file: string): string {
+  const root = vaultPath().replace(/\\/g, "/").replace(/\/$/, "");
+  const normalized = file.replace(/\\/g, "/");
+  return normalized.startsWith(`${root}/`) ? normalized.slice(root.length + 1) : normalized;
+}
 function readManifest(): SyncManifest {
   try { return JSON.parse(readFileSync(manifestPath(), "utf8")) as SyncManifest; } catch { return {}; }
 }
 function writeManifest(manifest: SyncManifest): void {
   writeFileSync(manifestPath(), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+}
+
+export function initSyncBaseline(force = false): { path: string; count: number } {
+  if (!vaultEnabled()) throw new Error(`Obsidian vault tidak ditemukan: ${vaultPath()}`);
+  if (!existsSync(join(vaultPath(), ".git"))) throw new Error("Vault Obsidian harus berupa repository Git.");
+  if (!force && existsSync(manifestPath())) throw new Error("Manifest sudah ada. Gunakan --force untuk membangun ulang.");
+  if (!force) {
+    const status = execFileSync("git", ["status", "--porcelain"], { cwd: vaultPath(), encoding: "utf8" });
+    if (status.trim()) throw new Error("Vault Git memiliki perubahan belum commit. Commit/stash dahulu atau gunakan --force.");
+  }
+  const entries: Array<{ id: string; path: string; content: string }> = [];
+  const root = join(vaultPath(), MEM_DIR);
+  if (existsSync(root)) {
+    const stack = [root];
+    while (stack.length) {
+      const dir = stack.pop()!;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) { stack.push(full); continue; }
+        if (!entry.name.endsWith(".md") || entry.name.endsWith(".conflict.md")) continue;
+        const content = readFileSync(full, "utf8");
+        const id = /^id:\s*(.+)$/m.exec(content)?.[1]?.trim();
+        if (id) entries.push({ id, path: full, content });
+      }
+    }
+  }
+  const manifest = buildSyncManifest(entries.map((entry) => ({ ...entry, path: relativeVaultPath(entry.path) })));
+    writeManifest(manifest);
+  return { path: manifestPath(), count: entries.length };
 }
 
 const DEFAULT_VAULT = "C:/path/to/your/ObsidianVault";

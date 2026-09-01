@@ -282,6 +282,18 @@ Preview a synchronization without writing files, Git, or the cache:
 node dist/cli.js sync --dry-run
 ```
 
+### Establishing a baseline
+
+For an existing vault that was synchronized before conflict protection was enabled, create a baseline before the next normal sync:
+
+```powershell
+node dist/cli.js sync --init-baseline
+```
+
+This command scans existing `memories/**/*.md` files, records their SHA-256 hashes, and does not call Notion or modify Markdown files. It requires a clean Obsidian Git working tree and refuses to replace an existing manifest unless `--force` is supplied. Back up the vault before the first baseline operation.
+
+The manifest is stored as `.shared-agent-memory-sync.json` at the vault root and contains relative paths only. It is derived state and can be rebuilt from the current mirror when necessary.
+
 ### Conflict protection
 
 The sync process records the SHA-256 hash of each successfully synchronized Markdown file in `.shared-agent-memory-sync.json` at the vault root. On a later sync, if a file differs from its last synchronized hash, the file is treated as manually edited:

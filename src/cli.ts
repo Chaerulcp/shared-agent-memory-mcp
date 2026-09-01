@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadConfig, normalizeId } from "./config.js";
-import { acquireWatcherLock } from "./obsidian.js";
+import { loadConfig, loadDotEnv, normalizeId } from "./config.js";
+import { acquireWatcherLock, initSyncBaseline } from "./obsidian.js";
 import { runSetup } from "./setup.js";
 import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
@@ -57,8 +57,9 @@ Perintah:
        Arsipkan memori (default) atau buang ke trash Notion (--hard)
   export [--out file.json]
        Ekspor semua memori ke JSON
-  sync [--dry-run] [--force]
+  sync [--dry-run] [--force] [--init-baseline]
        Tinjau/sinkronkan perubahan Notion ke Obsidian
+       --init-baseline membuat manifest dari file existing tanpa Notion
        Konflik dipertahankan; --force menimpa file yang berubah manual
        (dry-run hanya membaca Notion, tanpa menulis file atau Git)
   watch [--interval N]
@@ -180,6 +181,7 @@ function upsertEnvVar(key: string, value: string) {
 }
 
 async function main() {
+  loadDotEnv();
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const cmd = positional[0] ?? "help";
   const str = (k: string): string | undefined => {
@@ -381,6 +383,12 @@ async function main() {
     }
 
     case "sync": {
+      if (bool("init-baseline")) {
+        if (bool("dry-run")) throw new Error("--init-baseline tidak dapat digabungkan dengan --dry-run.");
+        const baseline = initSyncBaseline(bool("force"));
+        console.log(`Baseline manifest dibuat untuk ${baseline.count} file: ${baseline.path}`);
+        break;
+      }
       const dryRun = bool("dry-run");
       const force = bool("force");
       const result = await syncNotionToObsidian(dryRun, force);
