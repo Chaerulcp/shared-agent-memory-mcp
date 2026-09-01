@@ -8,6 +8,22 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.2.1] - 2026-09-02
+
+Patch release restoring relative-path portability in synchronization manifests.
+
+### Fixed
+
+- Sync now consistently stores vault-relative paths in `.shared-agent-memory-sync.json`, including watcher-generated updates on Windows.
+- Added regression coverage preventing absolute local paths from entering the manifest.
+
+### Verification
+
+- 27 automated tests passed.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+- Secret scan and `git diff --check` passed.
+- Production dry-run and conflict listing remained safe.
+
 ## [1.2.0] - 2026-09-02
 
 Stable feature release for operationally safe Obsidian synchronization.

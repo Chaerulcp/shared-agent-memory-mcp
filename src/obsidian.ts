@@ -24,10 +24,14 @@ import type { Memory } from "./store.js";
 const MANIFEST_FILE = ".shared-agent-memory-sync.json";
 
 function manifestPath(): string { return join(vaultPath(), MANIFEST_FILE); }
-function relativeVaultPath(file: string): string {
-  const root = vaultPath().replace(/\\/g, "/").replace(/\/$/, "");
+export function relativeManifestPath(vault: string, file: string): string {
+  const root = vault.replace(/\\/g, "/").replace(/\/$/, "");
   const normalized = file.replace(/\\/g, "/");
   return normalized.startsWith(`${root}/`) ? normalized.slice(root.length + 1) : normalized;
+}
+
+function relativeVaultPath(file: string): string {
+  return relativeManifestPath(vaultPath(), file);
 }
 
 function backupFile(file: string): string {
