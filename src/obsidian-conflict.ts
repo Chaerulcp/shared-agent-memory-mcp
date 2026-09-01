@@ -22,6 +22,7 @@ export function shouldPreserveExistingFile(hasExistingFile: boolean, lastSyncedH
   return hasExistingFile && !lastSyncedHash;
 }
 
-export function isConflict(content: string, lastSyncedHash?: string): boolean {
-  return shouldPreserveExistingFile(true, lastSyncedHash) || hasManualChange(content, lastSyncedHash);
+export function isConflict(content: string, lastSyncedHash?: string, expectedContent?: string): boolean {
+  if (lastSyncedHash) return hasManualChange(content, lastSyncedHash);
+  return expectedContent !== undefined && content !== expectedContent;
 }

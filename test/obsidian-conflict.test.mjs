@@ -12,8 +12,10 @@ test("hasManualChange distinguishes unchanged and edited files", () => {
   assert.equal(hasManualChange(synced, contentHash(synced)), false);
   assert.equal(hasManualChange("Manual edit", contentHash(synced)), true);
   assert.equal(hasManualChange("Any file", undefined), false);
-  assert.equal(isConflict("Legacy file", undefined), true);
+  assert.equal(isConflict("Legacy file", undefined), false);
+  assert.equal(isConflict("Legacy file", undefined, "Expected file"), true);
   assert.equal(isConflict(synced, contentHash(synced)), false);
+  assert.equal(isConflict(synced, undefined, synced), false);
 });
 
 test("conflict copy naming is stable", () => {

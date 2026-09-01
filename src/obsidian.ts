@@ -194,12 +194,12 @@ export function syncMemoryFile(m: Memory, force = false): { path?: string; confl
   if (!vaultEnabled()) return {};
   const manifest = readManifest();
   const existing = findFileById(m.id);
+  const body = toFrontmatter(m) + `# ${m.title}\n\n${m.content}\n`;
   if (existing && !force) {
     const previous = manifest[m.id];
     const current = readFileSync(existing, "utf8");
-    if (isConflict(current, previous?.hash)) {
+    if (isConflict(current, previous?.hash, body)) {
       const conflict = `${existing}.conflict.md`;
-      const body = toFrontmatter(m) + `# ${m.title}\n\n${m.content}\n`;
       if (!existsSync(conflict)) writeFileSync(conflict, body, "utf8");
       return { path: existing, conflict };
     }
