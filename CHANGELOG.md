@@ -8,6 +8,25 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.2.3] - 2026-09-02
+
+Patch release fixing archived-memory mirror cleanup after a direct production lifecycle test.
+
+### Fixed
+
+- Archived memories are no longer rediscovered as active Obsidian files during synchronization.
+- Archiving a memory now removes its entry from `.shared-agent-memory-sync.json`.
+- Added regression coverage for the full local archive lifecycle.
+
+### Verification
+
+- 28 automated tests passed.
+- Direct production `add → read-back → update → archive → sync` test passed after the fix.
+- Production sync completed for 47 memories with zero conflicts.
+- `conflicts --json` returned an empty list.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+- `git diff --check` passed.
+
 ## [1.2.2] - 2026-09-02
 
 Patch release fixing a Windows manifest portability regression.
