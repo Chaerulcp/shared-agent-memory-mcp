@@ -86,9 +86,51 @@ node dist/cli.js update <id> --status archived
 node dist/cli.js delete <id>
 ```
 
-## Obsidian dual-write
+## Obsidian integration and automatic sync
 
-Set `OBSIDIAN_VAULT_PATH` to a Git-backed Obsidian Vault path. If the folder does not exist, the server continues in Notion-only mode. Manual edits in Obsidian do not automatically update Notion.
+There are two supported flows:
+
+1. Agent/MCP flow: `memory_add`, `memory_update`, and `memory_delete` write Notion and then update Obsidian, commit, and push.
+2. Notion-first flow: if you edit a memory directly in Notion, run `sync` or keep `watch` running. Notion has no webhook in this local MCP, so an idle MCP process cannot detect a direct Notion edit by itself.
+
+Set the vault path in `.env`:
+
+```dotenv
+OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
+```
+
+The vault must be a Git repository with a configured remote:
+
+```powershell
+cd C:/Users/your-user/Documents/ObsidianVault
+git init
+git remote add origin https://github.com/your-user/your-vault.git
+```
+
+Run a one-time synchronization:
+
+```powershell
+npm run build
+npm run sync
+```
+
+Run continuous polling every five minutes (minimum 30 seconds):
+
+```powershell
+npm run watch
+```
+
+Each polling cycle queries Notion, rewrites the corresponding Markdown files, runs `git add`, creates a commit only when files changed, and attempts `git push`. A failed push does not lose the local commit.
+
+For Windows auto-start, create a Task Scheduler task that launches a PowerShell action such as:
+
+```powershell
+Start-Process -FilePath node -ArgumentList 'C:/path/to/shared-agent-memory-mcp/dist/cli.js','watch','--interval','300' -WorkingDirectory 'C:/path/to/shared-agent-memory-mcp' -WindowStyle Hidden
+```
+
+Use a process manager or Task Scheduler restart-on-failure policy for production-like reliability. Do not put Notion credentials in the command line; use `.env` or the MCP client's secure environment settings.
+
+Manual edits in Obsidian are not imported back into Notion. Notion remains the source of truth for this one-way synchronization design.
 
 ## Security
 

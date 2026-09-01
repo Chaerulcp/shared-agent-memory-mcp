@@ -269,6 +269,24 @@ export async function deleteMemory(id: string, hard = false): Promise<void> {
   void gitAutoSync(`memory: hapus/arsipkan ${page_id.slice(0, 8)}`);
 }
 
+export async function syncNotionToObsidian(): Promise<{ count: number; synced: string[] }> {
+  const memories = await listAll();
+  const synced: string[] = [];
+  for (const memory of memories) {
+    if (memory.status === "archived") {
+      archiveMemoryFile(memory.id);
+      synced.push(memory.id);
+      continue;
+    }
+    const file = upsertMemoryFile(memory);
+    if (file) synced.push(file);
+  }
+  if (synced.length > 0) {
+    await gitAutoSync(`sync: perbarui ${synced.length} memori dari Notion`);
+  }
+  return { count: synced.length, synced };
+}
+
 export async function listAll(): Promise<Memory[]> {
   const out: Memory[] = [];
   let cursor: string | undefined;

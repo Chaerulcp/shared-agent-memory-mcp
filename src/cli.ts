@@ -15,6 +15,7 @@ import {
   getMemory,
   listAll,
   searchMemories,
+  syncNotionToObsidian,
   updateMemory,
   type Memory,
 } from "./store.js";
@@ -44,6 +45,14 @@ Perintah:
        Arsipkan memori (default) atau buang ke trash Notion (--hard)
   export [--out file.json]
        Ekspor semua memori ke JSON
+  sync
+       Sinkronkan perubahan Notion ke Obsidian, commit, dan push
+  watch [--interval N]
+       Pantau Notion berkala (interval dalam detik; default 300)
+
+Catatan: sync/watch memerlukan OBSIDIAN_VAULT_PATH dan vault Git.
+Perubahan langsung di Notion tidak dapat memicu MCP yang sedang idle;
+watch harus dijalankan sebagai proses latar belakang.
 
 Agent    : ${AGENTS.join(", ")}
 Kategori : ${CATEGORIES.join(", ")}
@@ -303,6 +312,28 @@ async function main() {
       break;
     }
 
+    case "sync": {
+      const result = await syncNotionToObsidian();
+      console.log(`${result.count} memori disinkronkan dari Notion ke Obsidian.`);
+      break;
+    }
+
+    case "watch": {
+      const interval = Math.max(30, parseInt(str("interval") ?? "300", 10) || 300);
+      console.log(`Memantau Notion setiap ${interval} detik. Tekan Ctrl+C untuk berhenti.`);
+      const runSync = async () => {
+        try {
+          const result = await syncNotionToObsidian();
+          console.log(`[${new Date().toISOString()}] Sinkronisasi selesai: ${result.count} file.`);
+        } catch (err) {
+          console.error(`[${new Date().toISOString()}] Sinkronisasi gagal: ${errMsg(err)}`);
+        }
+      };
+      await runSync();
+      setInterval(() => void runSync(), interval * 1000);
+      await new Promise<void>(() => undefined);
+      break;
+    }
 
     default: {
       console.error(`Perintah tidak dikenal: ${cmd}\n`);
