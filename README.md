@@ -1,25 +1,47 @@
 # Shared Agent Memory MCP
 
-Shared long-term memory for AI coding agents, backed by Notion with optional Obsidian Vault dual-write.
+[![CI](https://github.com/Chaerulcp/shared-agent-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Chaerulcp/shared-agent-memory-mcp/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Chaerulcp/shared-agent-memory-mcp?display_name=tag)](https://github.com/Chaerulcp/shared-agent-memory-mcp/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-This project exposes a Model Context Protocol (MCP) server and a CLI for storing durable project decisions, conventions, environment notes, and bug fixes. It is designed to work with Cline, OpenCode, Claude Code, GitHub Copilot, Gemini CLI, Hermes, and other MCP-compatible clients.
+A human-auditable shared memory MCP for AI coding agents. Notion is the structured source of truth, Obsidian is an optional Git-backed Markdown mirror, and SQLite FTS5 provides a local search cache.
+
+The server works with MCP-compatible clients such as Cline, OpenCode, Claude Code, GitHub Copilot, Gemini CLI, Hermes, and other coding agents that support stdio MCP servers.
+
+## Why use it?
+
+Coding agents often repeat decisions, forget project conventions, or lose context when work moves between tools. Shared Agent Memory MCP gives them one durable memory store that multiple agents can use.
+
+The project is designed around four principles:
+
+- **Shared**: one memory database can serve several agents.
+- **Human-auditable**: memories can be reviewed as Notion pages or Markdown files.
+- **Notion-first**: Notion remains the authoritative store.
+- **Safe by default**: credentials stay outside memory content, the repository, and command-line arguments.
 
 ## Features
 
-- MCP stdio server with `memory_search`, `memory_recent`, `memory_get`, `memory_add`, `memory_update`, and `memory_delete`
-- CLI fallback for agents without MCP support
-- Notion database storage
-- Optional fire-and-forget Obsidian Vault dual-write
-- Agent attribution, categories, tags, importance, project scope, and archive status
-- Duplicate detection before `memory_add`, with explicit override when needed
-- Explicit validation for memory titles and content
-- No credentials committed to the repository
+- MCP tools for search, recent memories, read, create, update, and archive/delete.
+- CLI fallback for environments that do not support MCP.
+- Notion database storage with schema validation.
+- Optional one-way Notion to Obsidian synchronization.
+- Automatic Obsidian Git commit and push when synchronization changes files.
+- Polling watcher with a single-instance lock.
+- Duplicate detection before creating a new memory.
+- Optional project and repository scoping.
+- Provenance and freshness metadata: source, confidence, verification date, freshness period, and superseded memory ID.
+- Local SQLite FTS5 cache with a conservative hybrid-search fallback to Notion.
+- Setup wizard and diagnostic commands.
+- Built-in tests, GitHub Actions CI, secret scanning, and dependency auditing.
 
 ## Requirements
 
-- Node.js 22 or newer (the local cache uses `better-sqlite3` with SQLite FTS5)
-- A Notion integration and a database shared with that integration
-- Optional: an Obsidian Vault initialized as a Git repository for dual-write sync
+- Node.js 22 or newer.
+- A Notion integration with access to a database.
+- Git, if you use the Obsidian mirror.
+- An Obsidian vault initialized as a Git repository, if you use automatic mirror sync.
+
+Node.js 22 is required because the project uses `better-sqlite3` 13 for the local FTS5 cache.
 
 ## Installation
 
@@ -30,39 +52,90 @@ npm install
 npm run build
 ```
 
-Copy `.env.example` to `.env` and set:
+The package is also available through the GitHub repository. The current repository does not publish a registry package yet, so use the cloned project path in MCP client configuration.
+
+## Configuration
+
+Copy `.env.example` to `.env` and set the required values:
 
 ```dotenv
-NOTION_TOKEN=secret_your_token_here
-NOTION_DATABASE_ID=your_database_id_here
+NOTION_TOKEN=your_notion_integration_token
+NOTION_DATABASE_ID=your_notion_database_id
 ```
 
-Never commit `.env`.
+For the optional Obsidian mirror:
+
+```dotenv
+OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
+```
+
+The application reads environment variables first and loads `.env` as a local fallback. Never commit `.env`, place credentials in memory content, or pass tokens as command-line arguments.
+
+Check the local setup without modifying data:
+
+```powershell
+npm run setup -- --dry-run
+```
+
+Run the full setup check when you are ready:
+
+```powershell
+npm run setup
+```
+
+The setup wizard checks the project, build output, `.env`, Notion configuration, Obsidian vault, and Git remote. It does not create a Notion database or change agent configuration.
 
 ## Notion setup
 
-1. Create an integration at https://www.notion.so/profile/integrations.
-2. Create a Notion page/database for agent memory.
-3. Share the database with the integration.
-4. Set `NOTION_TOKEN` and `NOTION_DATABASE_ID` in `.env`.
-5. Run:
+1. Create an integration at [Notion integrations](https://www.notion.so/profile/integrations).
+2. Create a page where the memory database will live.
+3. Share the page or database with the integration.
+4. Create the database with the project command, or use an existing compatible database.
+5. Put the database ID in `.env`.
+6. Verify access:
 
 ```powershell
 npm run doctor
 ```
 
-The database should contain the properties `Name`, `Content`, `Agent`, `Category`, `Tags`, `Importance`, `Status`, `Created`, and `Updated`.
+Create a new database below a parent page:
+
+```powershell
+npm run init-db -- https://www.notion.so/your-parent-page
+```
+
+The generated database includes these properties:
+
+| Property | Type | Purpose |
+|---|---|---|
+| `Name` | Title | Short searchable memory title |
+| `Content` | Rich text | Durable memory content |
+| `Agent` | Select | Agent that saved the memory |
+| `Category` | Select | Preference, decision, convention, bugfix, and other categories |
+| `Tags` | Multi-select | Searchable labels |
+| `Importance` | Select | High, medium, or low |
+| `Status` | Select | Active or archived |
+| `Project` | Rich text | Optional repository or project scope |
+| `Source` | Select | Agent, user, Notion, import, or system |
+| `Confidence` | Select | High, medium, or low |
+| `Verified At` | Date | Last verification timestamp |
+| `Freshness Days` | Number | Number of days before the memory becomes stale |
+| `Supersedes` | Rich text | ID of an older memory replaced by this memory |
+| `Created` | Created time | Notion-managed creation time |
+| `Updated` | Last edited time | Notion-managed edit time |
+
+Existing databases may omit the optional fields. The server remains backward compatible and only writes optional fields when those properties exist.
 
 ## MCP client configuration
 
-Build the project first, then use an absolute path to `dist/index.js` in your MCP client configuration. Examples for each client are available in `agents/`. Replace the placeholder path and provide credentials through the client environment or a secure secret store.
+Build the project first, then register the absolute path to `dist/index.js` in your MCP client. The server uses stdio transport.
 
-Example stdio registration:
+Generic configuration:
 
 ```json
 {
   "mcpServers": {
-    "notion-memory": {
+    "shared-agent-memory": {
       "transport": {
         "type": "stdio",
         "command": "node",
@@ -73,27 +146,61 @@ Example stdio registration:
 }
 ```
 
-Restart the client after changing MCP configuration; most clients do not hot-reload MCP tools.
+Provide `NOTION_TOKEN` and `NOTION_DATABASE_ID` through the client's environment settings or the local `.env` file. Do not put credentials in the JSON example above.
 
-## CLI
+Restart the client after changing MCP configuration. Most clients do not reload MCP tools automatically.
+
+The repository contains example agent configuration files under `agents/`. Treat them as templates: replace the placeholder path and provide credentials through a secure local environment.
+
+## MCP tools
+
+### `memory_search`
+
+Search active memories by text. Optional filters include agent, category, tag, project, and result limit. Searches that need archived memories or unsupported filters use live Notion search.
+
+### `memory_recent`
+
+List recently updated active memories, optionally filtered by agent.
+
+### `memory_get`
+
+Retrieve one memory by its Notion page ID.
+
+### `memory_add`
+
+Create a durable memory. Required fields are `title`, `content`, and `agent`. Optional fields include category, tags, importance, project, source, confidence, verification date, freshness period, and superseded memory ID.
+
+The server checks for similar active memories before creating a page. If a likely duplicate is found, it returns candidate IDs so the agent can update the existing memory. Set `allowDuplicate: true` only when the new memory is intentionally separate.
+
+### `memory_update`
+
+Update an existing memory, including its project and provenance metadata. Prefer this over creating a second memory when a decision has changed.
+
+### `memory_delete`
+
+Archive a memory by default. A hard delete requests removal from Notion when the API supports it; use this carefully.
+
+## CLI usage
+
+The executable is available after building as `node dist/cli.js` or through the package bin name `agent-memory`.
 
 ```powershell
 node dist/cli.js doctor
-node dist/cli.js search "laravel"
+node dist/cli.js search "laravel deployment"
+node dist/cli.js search "deployment" --project crm --limit 10
 node dist/cli.js recent --limit 5
-node dist/cli.js add --title "Use plan before implementation" --content "Review a plan before editing project files." --agent shared --category convention --importance high
-node dist/cli.js get <id>
-node dist/cli.js update <id> --status archived
-node dist/cli.js delete <id>
+node dist/cli.js get <notion-page-id>
+node dist/cli.js add --title "Use plan before implementation" --content "Review a plan before editing project files." --agent shared --category convention --importance high --project crm
+node dist/cli.js update <notion-page-id> --status archived
+node dist/cli.js delete <notion-page-id>
+node dist/cli.js export --out memories.json
 ```
 
-### Project scope and duplicate protection
+Use `--json` for machine-readable output where supported. Long content can be supplied with `--content-file <path>`.
 
-`memory_add` accepts an optional `project` value, such as a repository name or stable project identifier. `memory_search` accepts the same value to limit results to that project. The `Project` property is added automatically to databases created by this project; existing databases without that property remain compatible.
+## Project scope, duplicates, and freshness
 
-Before saving, the server compares the new title and content with active memories in the same project. If a likely duplicate is found, it returns the matching candidates instead of creating another page. Prefer `memory_update` using the candidate ID. Set `allowDuplicate: true` only when the new memory is intentionally separate.
-
-Example:
+Use a stable repository or project identifier, not a temporary branch name, for `project`. This keeps memories from unrelated projects separate.
 
 ```json
 {
@@ -102,35 +209,33 @@ Example:
   "agent": "shared",
   "category": "convention",
   "project": "crm",
+  "source": "user",
+  "confidence": "high",
+  "verifiedAt": "2026-09-01T13:00:00.000Z",
+  "freshnessDays": 90,
   "allowDuplicate": false
 }
 ```
 
-### Provenance and freshness
+Memory results include a freshness state:
 
-Memories dapat menyimpan metadata opsional: `source`, `confidence`, `verifiedAt`, `freshnessDays`, dan `supersedes`. Hasil memory akan memiliki `freshness` bernilai `fresh`, `stale`, atau `unknown`. Memory lama tanpa metadata tetap valid dan menghasilkan `unknown`.
+- `fresh`: verification is within the configured freshness period.
+- `stale`: the period has elapsed.
+- `unknown`: no usable verification metadata exists.
 
-Gunakan `memory_update` untuk memperbarui `verifiedAt` setelah keputusan diperiksa ulang. `supersedes` dapat menunjuk ID memory lama yang sudah digantikan. Property metadata hanya ditulis jika tersedia pada schema database Notion, sehingga database lama tetap kompatibel.
+Older databases without these fields continue to work and return `unknown` freshness.
 
-Contoh metadata:
+## Obsidian mirror and automatic synchronization
 
-```json
-{
-  "source": "user",
-  "confidence": "high",
-  "verifiedAt": "2026-09-01T13:00:00.000Z",
-  "freshnessDays": 90
-}
+The synchronization direction is deliberately one way:
+
+```text
+Notion -> Obsidian Markdown -> Git commit -> Git push
 ```
 
-## Obsidian integration and automatic sync
+Notion remains the source of truth. Manual edits in Obsidian are not imported back into Notion.
 
-There are two supported flows:
-
-1. Agent/MCP flow: `memory_add`, `memory_update`, and `memory_delete` write Notion and then update Obsidian, commit, and push.
-2. Notion-first flow: if you edit a memory directly in Notion, run `sync` or keep `watch` running. Notion has no webhook in this local MCP, so an idle MCP process cannot detect a direct Notion edit by itself.
-
-Set the vault path in `.env`:
+Configure the vault:
 
 ```dotenv
 OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
@@ -147,87 +252,103 @@ git remote add origin https://github.com/your-user/your-vault.git
 Run a one-time synchronization:
 
 ```powershell
-npm run build
 npm run sync
 ```
 
-Run continuous polling every five minutes (minimum 30 seconds):
+Run the polling watcher. The minimum interval is 30 seconds and the default is 300 seconds:
 
 ```powershell
 npm run watch
 ```
 
-Each polling cycle queries Notion, refreshes the local SQLite FTS5 cache, rewrites the corresponding Markdown files, runs `git add`, creates a commit only when files changed, and attempts `git push`. A failed push does not lose the local commit. `sync --dry-run` remains read-only and does not update the cache.
+The watcher uses a lock file to prevent duplicate instances. Its log is written to `watcher.log` when launched through the provided Windows startup script. A failed Git push leaves the local commit in place for a later retry.
 
-### Hybrid search and cache consistency
-
-The MCP search path uses the local FTS5 cache only for a text query with active status when the snapshot is no older than five minutes. Project filtering is supported. Searches using agent, category, or tag filters, archived/all status, or an expired/missing cache query Notion directly. If cached rows do not contain the complete memory payload, the search also falls back to Notion. Notion remains the source of truth.
-
-`memory_add`, `memory_update`, and `memory_delete` clear the cache after a successful write. The next normal `sync` rebuilds it from Notion. This prevents a local cache from returning a known-stale result after a mutation.
-
-For Windows auto-start, create a Task Scheduler task that launches a PowerShell action such as:
+Preview a synchronization without writing files, Git, or the cache:
 
 ```powershell
-Start-Process -FilePath node -ArgumentList 'C:/path/to/shared-agent-memory-mcp/dist/cli.js','watch','--interval','300' -WorkingDirectory 'C:/path/to/shared-agent-memory-mcp' -WindowStyle Hidden
+node dist/cli.js sync --dry-run
 ```
 
-Use a process manager or Task Scheduler restart-on-failure policy for production-like reliability. Do not put Notion credentials in the command line; use `.env` or the MCP client's secure environment settings.
+For Windows auto-start, use the startup script in the user's Startup folder or create a Task Scheduler task with appropriate permissions. Do not claim Task Scheduler is configured unless the task has been verified successfully.
 
-Manual edits in Obsidian are not imported back into Notion. Notion remains the source of truth for this one-way synchronization design.
+## Local SQLite FTS5 cache
 
-## Security
+The local cache is stored at `.cache/memory.sqlite` and is excluded from Git. It is disposable and can always be rebuilt from Notion.
 
-- Keep `.env` outside version control.
-- Do not save API keys, tokens, passwords, or other secrets in memory.
-- Use the minimum Notion page access required by the integration.
-- Review every memory before sharing a public repository or issue.
+```powershell
+node dist/cli.js cache rebuild
+node dist/cli.js cache status
+node dist/cli.js cache search "laravel deployment"
+node dist/cli.js cache clear
+```
 
-## Setup wizard
+The MCP search path uses the cache only when all of these conditions hold:
 
-After cloning, run the read-only setup check:
+- The query is a text query for active memories.
+- The cache snapshot is no older than five minutes.
+- The query does not use agent, category, or tag filters.
+- The cached row contains the complete memory payload.
+
+Otherwise, the request falls back to Notion. Project filtering is supported by the cache. `memory_add`, `memory_update`, and `memory_delete` clear the cache after a successful write. A normal `sync` rebuilds it from the latest Notion snapshot; `sync --dry-run` does not change it.
+
+## Security and privacy
+
+- Keep `.env` out of version control.
+- Never store API keys, tokens, passwords, cookies, or connection strings in memory content.
+- Do not put credentials in MCP configuration examples, issue reports, logs, or screenshots.
+- Share the Notion database only with the intended integration.
+- Review memories before exporting or publishing the Obsidian vault.
+- Review dependency changes and run `npm audit` before releases.
+
+Read [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+## Troubleshooting
+
+### `NOTION_TOKEN` is missing
+
+Create `.env` from `.env.example`, set the token locally, and run `npm run doctor`. If the client launches the server itself, provide the variables through that client's secure environment configuration.
+
+### `NOTION_DATABASE_ID` is missing
+
+Run `npm run init-db -- <parent-page-url>` or set the ID of an existing shared database in `.env`.
+
+### Notion returns an access error
+
+Open the target database in Notion, share it with the integration, confirm the database ID, and run `npm run doctor` again.
+
+### The cache returns no results
+
+Run `node dist/cli.js cache status`. If the cache is empty or stale, run `node dist/cli.js cache rebuild`. Live MCP search falls back to Notion when the cache cannot be trusted.
+
+### Obsidian files do not update
+
+Check `OBSIDIAN_VAULT_PATH`, confirm the path is a Git repository, verify the remote with `git remote -v`, and run `node dist/cli.js sync --dry-run` before running a normal sync.
+
+### The watcher appears to do nothing on Windows
+
+The startup script intentionally runs hidden. Check `watcher.log`, verify that only one watcher is active, and inspect the lock file inside the configured vault.
+
+## Development
 
 ```powershell
 npm install
 npm run build
-npm run setup -- --dry-run
-```
-
-Run `npm run setup` to verify the local project, `.env`, Notion database, Obsidian vault, and Git remote. The command never prints credential values. It does not create a Notion database or modify agent configuration. To create a new Notion database, use the separate command:
-
-```powershell
-npm run init-db -- https://www.notion.so/your-parent-page
-```
-
-The setup wizard returns exit code `0` when all checks pass and `1` when action is required.
-
-## Development
-
-```powershell
-npm run build
 npm test
-npm run doctor
+npm audit --omit=dev
+git diff --check
 ```
 
-## Releases
+The test suite uses Node's built-in test runner. CI runs the build, tests, production dependency audit, and credential-pattern scan.
 
-This project follows Semantic Versioning. See [CHANGELOG.md](CHANGELOG.md) for release history. Do not commit local `.env` files or generated `dist/` output.
+## Versioning and releases
 
-## Support and security
+The project follows Semantic Versioning. The stable baseline release is [v1.0.0](https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.0.0). See [CHANGELOG.md](CHANGELOG.md) for changes after that baseline.
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting and credential handling.
+Do not commit generated `dist/` output, `.env`, SQLite files, logs, or local IDE data. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for pull requests.
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and consistency guarantees.
-
-## Development
-
-```powershell
-npm run build
-npm run doctor
-```
-
-Contributions should include tests or a reproducible verification step for behavior changes.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for components, data flow, cache consistency, and failure behavior.
 
 ## License
 
