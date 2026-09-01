@@ -3,6 +3,33 @@ import { loadConfig, normalizeId } from "./config.js";
 import { archiveMemoryFile, gitAutoSync, upsertMemoryFile } from "./obsidian.js";
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
+import { cacheInput, createMemoryCache } from "./cache.js";
+
+function rebuildLocalCache(memories: Memory[]): void {
+  const cache = createMemoryCache();
+  try {
+    cache.replaceAll(memories.map(cacheInput));
+  } finally {
+    cache.close();
+  }
+}
+
+export function syncCacheForMemories(memories: Memory[], dryRun = false, cachePath?: string): number {
+  if (dryRun) return 0;
+  const cache = cachePath ? createMemoryCache(cachePath) : undefined;
+  if (cache) {
+    try { cache.replaceAll(memories.map(cacheInput)); }
+    finally { cache.close(); }
+  } else {
+    rebuildLocalCache(memories);
+  }
+  return memories.length;
+}
+
+export function cacheSyncSummary(memories: Memory[], dryRun = false): { cached: number; dryRun: boolean } {
+  return { cached: syncCacheForMemories(memories, dryRun), dryRun };
+}
+
 
 function optionalProperty(name: string, value: string | undefined, schema?: Record<string, any>) {
   if (!value || !schema?.[name]) return {};
@@ -394,6 +421,7 @@ export async function syncNotionToObsidian(dryRun = false): Promise<{ count: num
   if (dryRun) {
     return { count: memories.length, synced: memories.map((memory) => memory.id) };
   }
+  syncCacheForMemories(memories);
   for (const memory of memories) {
     if (memory.status === "archived") {
       archiveMemoryFile(memory.id);

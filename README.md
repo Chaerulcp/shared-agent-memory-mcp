@@ -157,7 +157,7 @@ Run continuous polling every five minutes (minimum 30 seconds):
 npm run watch
 ```
 
-Each polling cycle queries Notion, rewrites the corresponding Markdown files, runs `git add`, creates a commit only when files changed, and attempts `git push`. A failed push does not lose the local commit.
+Each polling cycle queries Notion, refreshes the local SQLite FTS5 cache, rewrites the corresponding Markdown files, runs `git add`, creates a commit only when files changed, and attempts `git push`. A failed push does not lose the local commit. `sync --dry-run` remains read-only and does not update the cache.
 
 For Windows auto-start, create a Task Scheduler task that launches a PowerShell action such as:
 
