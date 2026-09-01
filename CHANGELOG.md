@@ -8,6 +8,34 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.1.2] - 2026-09-01
+
+Patch release that fixes false Obsidian conflicts for newly created memories.
+
+### Fixed
+
+- Existing Obsidian files without a manifest entry are now compared with the expected Notion content before being classified as conflicts.
+- Newly synchronized files that already match Notion are adopted into the manifest without creating unnecessary `.conflict.md` files.
+- Repeated watcher cycles no longer report false conflicts for identical files.
+
+### Verification
+
+- 23 automated tests passed.
+- Real production sync completed with 45 files and 0 conflicts.
+- Repeated sync remained stable with 45 files and 0 conflicts.
+- `npm audit --omit=dev` reported 0 vulnerabilities.
+- Credential-pattern scan passed.
+- GitHub Actions CI passed for the fix commit.
+
+### Compatibility
+
+- `v1.1.1` remains unchanged and its tag continues to point to the original patch release.
+- Notion remains the source of truth.
+- Existing `.shared-agent-memory-sync.json` manifests remain compatible.
+
+[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.2
+
 ## [1.1.1] - 2026-09-01
 
 Patch release that adds safe Obsidian conflict handling and production baseline support without changing the `v1.1.0` tag.
