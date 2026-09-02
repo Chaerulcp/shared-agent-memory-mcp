@@ -463,7 +463,7 @@ New Memory → Write-ahead Log → Buffer (batch)
 ✅ **Git & CI/CD**
 - Branch: main
 - Tag: v1.4.0
-- Commit: e2dae6e
+- **Commit:** 50e5d65
 - CI status: ✅ Green
 - Deploy status: ✅ Success
 
