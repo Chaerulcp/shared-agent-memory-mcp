@@ -449,7 +449,7 @@ For detailed setup instructions for each supported client platform:
 
 ### Example Configurations
 
-Ready-to-use configuration files available in [`examples/mcp-configs/`](../examples/mcp-configs/):
+Ready-to-use configuration files available in [`examples/mcp-configs/`](./examples/mcp-configs/):
 - `claude-code.json` - Claude Code + VS Code setup
 - `copilot-cli.json` - GitHub Copilot CLI configuration  
 - `opencode.json` - OpenCode MCP client config

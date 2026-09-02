@@ -241,7 +241,7 @@ Once comfortable with basics:
    node dist/cli.js --help
    ```
 
-2. **Read full documentation**: [`README.md`](../README.md)
+2. **Read full documentation**: [`README.md`](./README.md)
 
 3. **Join discussions**: [GitHub Discussions](https://github.com/Chaerulcp/shared-agent-memory-mcp/discussions)
 
@@ -259,4 +259,4 @@ Once comfortable with basics:
 
 ---
 
-**Ready to dive deeper?** Check out the [full documentation](../README.md) next! 😊
+**Ready to dive deeper?** Check out the [full documentation](./README.md) next! 😊
