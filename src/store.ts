@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client";
 import { loadConfig, normalizeId } from "./config.js";
-import { archiveMemoryFile, gitAutoSync, syncMemoryFile, upsertMemoryFile } from "./obsidian.js";
+import { archiveMemoryFile, archiveMissingMemoryFiles, gitAutoSync, syncMemoryFile, upsertMemoryFile } from "./obsidian.js";
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
 import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
@@ -260,7 +260,7 @@ export function pageToMemory(page: any): Memory {
     category: selectName(p["Category"]) || "other",
     tags: (p["Tags"]?.multi_select ?? []).map((t: any) => t.name),
     importance: selectName(p["Importance"]) || "medium",
-    status: selectName(p["Status"]) || "active",
+    status: page.archived === true ? "archived" : (selectName(p["Status"]) || "active"),
     url: page.url ?? "",
     createdAt: page.created_time ?? "",
     updatedAt: page.last_edited_time ?? "",
@@ -418,7 +418,7 @@ export async function updateMemory(id: string, patch: UpdateMemoryPatch): Promis
   if (memory.status === "archived") {
     archiveMemoryFile(memory.id);
   } else {
-    upsertMemoryFile(memory);
+    syncMemoryFile(memory);
   }
   invalidateLocalCache();
   void gitAutoSync(`memory(${memory.agent}): perbarui "${memory.title.slice(0, 60)}"`);
@@ -451,6 +451,7 @@ export async function syncNotionToObsidian(dryRun = false, force = false): Promi
     return { count: memories.length, synced: memories.map((memory) => memory.id), conflicts };
   }
   syncCacheForMemories(memories);
+  archiveMissingMemoryFiles(new Set(memories.map((memory) => memory.id)));
   for (const memory of memories) {
     if (memory.status === "archived") {
       archiveMemoryFile(memory.id);

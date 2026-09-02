@@ -88,6 +88,13 @@ function writeManifest(manifest: SyncManifest): void {
   writeFileSync(manifestPath(), JSON.stringify(manifest, null, 2) + "\n", "utf8");
 }
 
+function removeManifestEntry(manifest: SyncManifest, id: string): void {
+  const normalized = id.replace(/-/g, "").toLowerCase();
+  for (const key of Object.keys(manifest)) {
+    if (key.replace(/-/g, "").toLowerCase() === normalized) delete manifest[key];
+  }
+}
+
 export function initSyncBaseline(force = false): { path: string; count: number } {
   if (!vaultEnabled()) throw new Error(`Obsidian vault tidak ditemukan: ${vaultPath()}`);
   if (!existsSync(join(vaultPath(), ".git"))) throw new Error("Vault Obsidian harus berupa repository Git.");
@@ -215,7 +222,8 @@ function findFileById(id: string): string | undefined {
       if (!entry.name.endsWith(".md")) continue;
       try {
         const head = readFileSync(full, "utf8").slice(0, 600);
-        if (head.includes(`id: ${id}`)) return full;
+        const fileId = /^id:\s*(.+)$/m.exec(head)?.[1]?.trim();
+        if (fileId && fileId.replace(/-/g, "").toLowerCase() === id.replace(/-/g, "").toLowerCase()) return full;
       } catch {
         /* skip unreadable */
       }
@@ -269,19 +277,73 @@ export function syncMemoryFile(m: Memory, force = false): { path?: string; confl
   return { path };
 }
 
+export function archiveMissingMemoryFiles(activeIds: Set<string>): string[] {
+  if (!vaultEnabled()) return [];
+  const manifest = readManifest();
+  const archived: string[] = [];
+  const active = new Set([...activeIds].map((id) => id.replace(/-/g, "").toLowerCase()));
+  const candidates: string[] = [];
+  const root = join(vaultPath(), MEM_DIR);
+  if (existsSync(root)) {
+    const stack = [root];
+    while (stack.length) {
+      const dir = stack.pop()!;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (full !== join(root, ARCHIVE_DIR)) stack.push(full);
+          continue;
+        }
+        if (!entry.name.endsWith(".md")) continue;
+        const head = readFileSync(full, "utf8").slice(0, 600);
+        const fileId = /^id:\s*(.+)$/m.exec(head)?.[1]?.trim();
+        if (!fileId || active.has(fileId.replace(/-/g, "").toLowerCase())) continue;
+        if (entry.name.endsWith(".conflict.md")) {
+          rmSync(full);
+        } else {
+          candidates.push(full);
+        }
+      }
+    }
+  }
+  for (const key of Object.keys(manifest)) {
+    if (!active.has(key.replace(/-/g, "").toLowerCase())) {
+      const existing = findFileById(key);
+      if (existing && !candidates.includes(existing)) candidates.push(existing);
+      removeManifestEntry(manifest, key);
+    }
+  }
+  if (candidates.length) {
+    const archiveDir = join(vaultPath(), ARCHIVE_DIR);
+    mkdirSync(archiveDir, { recursive: true });
+    for (const existing of candidates) {
+      const target = join(archiveDir, existing.split(/[\\/]/).pop()!);
+      renameSync(existing, target);
+      archived.push(relativeVaultPath(target));
+    }
+    writeManifest(manifest);
+  } else if (Object.keys(manifest).length !== Object.keys(readManifest()).length) {
+    writeManifest(manifest);
+  }
+  return archived;
+}
+
 export function archiveMemoryFile(id: string, hard = false): void {
   if (!vaultEnabled()) return;
   const existing = findFileById(id);
   if (!existing) return;
   if (hard) {
     rmSync(existing);
+    const manifest = readManifest();
+    removeManifestEntry(manifest, id);
+    writeManifest(manifest);
     return;
   }
   const archiveDir = join(vaultPath(), ARCHIVE_DIR);
   mkdirSync(archiveDir, { recursive: true });
   renameSync(existing, join(archiveDir, existing.split(/[\\/]/).pop()!));
   const manifest = readManifest();
-  delete manifest[id];
+  removeManifestEntry(manifest, id);
   writeManifest(manifest);
 }
 

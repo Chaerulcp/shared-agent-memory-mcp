@@ -8,6 +8,25 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.3.1] - 2026-09-02
+
+Patch release fixing production archive and conflict lifecycle consistency.
+
+### Fixed
+
+- Archived Notion pages are exposed as `archived` even when the Status property is stale.
+- Dashed and compact Notion IDs resolve to the same Obsidian mirror file.
+- Archived and hard-deleted records remove matching manifest entries.
+- Sync reconciles active mirror files and stale conflict copies whose source records are no longer active.
+- Updating a memory now uses conflict protection instead of overwriting manual Obsidian edits directly.
+
+### Verification
+
+- 35 automated tests passed.
+- Direct production archive, hard-delete fallback, conflict, repeated-sync, keep-local, accept-source, backup, and force tests passed.
+- Production sync is idempotent with zero conflicts.
+- Production cache clear and rebuild passed.
+
 ## [1.3.0] - 2026-09-02
 
 Minor release adding synchronization diagnostics and recovery guidance.
