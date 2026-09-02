@@ -13,3 +13,15 @@ dist/
 coverage/
 .env.*
 !.env.example
+stress_test_cycle_*.json
+STRESS_TEST_REPORT.md
+stress_results_summary.json
+stress_test_partial.json
+RELEASE-COMPLETE-SUMMARY.md
+RELEASE-*-*
+*.report.json
+IMPLEMENTATION_REPORT.md
+PHASE1_IMPLEMENTATION_SUMMARY.md
+VECTOR_SEARCH_ENABLEMENT_REPORT.md
+REPOSITORY-CLEANUP-*.md
+release-v1.4.0.md

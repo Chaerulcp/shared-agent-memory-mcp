@@ -186,6 +186,20 @@ const results = await vectorIndex.semanticSearch('login issues', 10);
 - **NEW**: **Query ranking optimizer** with multi-factor relevance scoring.
 - **NEW**: **Access pattern tracking** and automatic cache promotion.
 
+
+
+### Repository Structure & Cleaning
+
+This repository follows Git best practices for professional open-source projects:
+
+- **Production-first**: Contains only user-facing documentation and production code
+- **Clean architecture**: Development notes, test artifacts, and internal reports excluded via `.gitignore`  
+- **Comprehensive coverage**: All features documented in README.md and CHANGELOG.md
+- **Security-focused**: No credentials or sensitive data ever committed
+
+For details on what's included/excluded, see the comprehensive `.gitignore` file.
+Internal development documentation is maintained locally during development but excluded from public releases.
+
 ## Requirements
 
 - Node.js 22 or newer.
@@ -665,4 +679,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing to this pr
 
 ---
 
-**Copyright © 2024-present** - All rights reserved globally.
+**Copyright © 2026-present** - All rights reserved globally.

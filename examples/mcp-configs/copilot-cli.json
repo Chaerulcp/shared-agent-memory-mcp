@@ -1,0 +1,11 @@
+{
+  "name": "agent-memory-mcp",
+  "type": "stdio",
+  "command": "node",
+  "args": ["/absolute/path/to/shared-agent-memory-mcp/dist/index.js"],
+  "env": {
+    "NOTION_TOKEN": "${NOTION_TOKEN}",
+    "NOTION_DATABASE_ID": "${NOTION_DATABASE_ID}"
+  },
+  "settings": {}
+}

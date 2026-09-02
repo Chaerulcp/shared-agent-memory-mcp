@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "shared-agent-memory": {
+      "transport": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["/absolute/path/to/shared-agent-memory-mcp/dist/index.js"]
+      }
+    }
+  },
+  "env": {
+    "NOTION_TOKEN": "your-notion-token",
+    "NOTION_DATABASE_ID": "your-database-id"
+  }
+}
