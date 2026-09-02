@@ -1,0 +1,41 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "create_ok": false,
+      "read_ok": false,
+      "search_ok": false,
+      "update_ok": false,
+      "archive_ok": false,
+      "sync_ok": true,
+      "doctor_healthy": true,
+      "files_synced": 0,
+      "conflicts": 0
+    },
+    {
+      "cycle": 2,
+      "create_ok": false,
+      "read_ok": false,
+      "search_ok": false,
+      "update_ok": false,
+      "archive_ok": false,
+      "sync_ok": true,
+      "doctor_healthy": true,
+      "files_synced": 0,
+      "conflicts": 0
+    },
+    {
+      "cycle": 3,
+      "create_ok": false,
+      "read_ok": false,
+      "search_ok": false,
+      "update_ok": false,
+      "archive_ok": false,
+      "sync_ok": true,
+      "doctor_healthy": true,
+      "files_synced": 0,
+      "conflicts": 0
+    }
+  ],
+  "last_update": "11:57:22"
+}
