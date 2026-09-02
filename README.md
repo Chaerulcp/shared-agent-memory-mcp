@@ -403,7 +403,7 @@ node dist/cli.js search "React hooks useEffect"
 node dist/cli.js search "best practices for error handling in production"
 
 # Filtered search
-node dist/cli.js search "database schema" --filter "category:architecture"
+node dist/cli.js search "database schema" --category architecture
 ```
 
 ### Update/Delete Memories
@@ -416,7 +416,7 @@ node dist/cli.js update --id memory-123 --title "Updated Title"
 node dist/cli.js delete --id memory-123
 
 # Permanent deletion (requires confirmation)
-node dist/cli.js delete --id memory-123 --force
+node dist/cli.js delete memory-123 --hard
 ```
 
 ### Health Monitoring
@@ -425,11 +425,11 @@ node dist/cli.js delete --id memory-123 --force
 # Full diagnostic with sync status
 node dist/cli.js doctor --sync
 
-# Cache statistics
-node dist/cli.js cache stats
-
-# Rebuild slow caches
+# Rebuild the local search cache when needed
 node dist/cli.js cache rebuild
+
+# Inspect available commands and options
+node dist/cli.js --help
 ```
 
 ---
@@ -484,9 +484,9 @@ Production Validation: HEALTHY ✅
 Run tests yourself:
 ```bash
 npm test
-# or specific suites
-npm test -- --grep "hybrid-search"
-npm test -- --grep "tiered-pool"
+# The repository test script runs the complete suite.
+# To run a focused test file directly:
+node --test test/hybrid-search-integration.test.mjs
 ```
 
 ### CI/CD Pipeline
@@ -516,15 +516,18 @@ jobs:
 **Upgrade Instructions:**
 
 ```bash
-# Option 1: NPM
-npm install @chaerulcp/agent-memory-mcp@latest
-
-# Option 2: Local development
-npm install
+# Upgrade a cloned checkout
+# Review the target tag or commit before updating
+git pull --ff-only
+npm ci
 npm run build
 
 # Post-upgrade verification
 node dist/cli.js doctor --sync
+npm test
+
+# Note: This repository is currently documented and installed
+# from source; no public npm package installation is assumed.
 ```
 
 **Configuration Updates:**
@@ -560,11 +563,11 @@ cd shared-agent-memory-mcp
 # Install dev dependencies
 npm install --include=dev
 
-# Run tests in watch mode
-npm run test:watch
+# Run the complete test suite
+npm test
 
-# Build continuously
-npm run build:watch
+# Rebuild after source changes
+npm run build
 ```
 
 ---
