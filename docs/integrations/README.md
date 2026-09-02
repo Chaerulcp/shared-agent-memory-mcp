@@ -10,9 +10,14 @@ This directory contains detailed, step-by-step setup guides for each supported c
 
 | Client | Platform | Setup Time | Config File | Status |
 |--------|----------|------------|-------------|---------|
-| [Claude Code](claude-code.md) | VS Code Extension | 2 min | `examples/mcp-configs/claude-code.json` | ✅ Ready |
-| [GitHub Copilot CLI](copilot-cli.md) | GitHub CLI | 3 min | `examples/mcp-configs/copilot-cli.json` | ✅ Ready |
-| [OpenCode](opencode.md) | Open MCP Client | 2 min | `examples/mcp-configs/opencode.json` | ✅ Ready |
+| [Claude Code](claude-code.md) | VS Code Extension | 2 min | [`examples`](examples/mcp-configs/claude-code.json) | ✅ Ready |
+| [GitHub Copilot CLI](copilot-cli.md) | GitHub CLI | 3 min | [`examples`](examples/mcp-configs/copilot-cli.json) | ✅ Ready |
+| [OpenCode](opencode.md) | Open MCP Client | 2 min | [`examples`](examples/mcp-configs/opencode.json) | ✅ Ready |
+| [Hermes Agent](hermes.md) | Desktop Agent | 3 min | [`Guide`](hermes.md) | ✅ Ready |
+| [Antigravity IDE](antigravity-ide.md) | Google Antigravity IDE | 3 min | [`Guide`](antigravity-ide.md) | ✅ Ready |
+| [Antigravity CLI](antigravity.md) | Google Antigravity CLI | 3 min | [`Guide`](antigravity.md) | ✅ Ready |
+| [Codex VSCode Extension](codex-vscode.md) | VSCode AI Extension | 2 min | [`Guide`](codex-vscode.md) | ✅ Ready |
+| [Codex CLI](codex-cli.md) | Command Line AI | 3 min | [`Guide`](codex-cli.md) | ✅ Ready |
 | [Cline](cline.md) | Autonomous Agent | 5 min | Coming Soon | 🚧 In Progress |
 | [Gemini CLI](gemini-cli.md) | Google AI CLI | TBD | - | 🚧 Planned |
 
