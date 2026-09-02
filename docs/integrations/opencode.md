@@ -37,7 +37,7 @@
 2. **Configure Environment:**
    Create `.env` file:
    ```env
-   NOTION_TOKEN=secret_YourTokenHere
+   NOTION_TOKEN=your_notion_token_here
    NOTION_DATABASE_ID=your-database-id-here
    ```
 

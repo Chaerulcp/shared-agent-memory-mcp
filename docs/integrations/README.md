@@ -36,7 +36,7 @@ Before configuring any client, ensure you have:
 
 ```dotenv
 # Required for ALL clients
-NOTION_TOKEN=secret_YourIntegrationTokenHere
+NOTION_TOKEN=your_notion_token_here
 NOTION_DATABASE_ID=your-database-id-here
 
 # Optional - Obsidian mirror backup

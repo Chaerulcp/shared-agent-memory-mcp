@@ -65,7 +65,7 @@ npm run build
 Create a `.env` file in your working directory:
 
 ```env
-NOTION_TOKEN=secret_YourIntegrationTokenHere
+NOTION_TOKEN=your_notion_token_here
 NOTION_DATABASE_ID=your-database-id-here
 
 # Optional settings

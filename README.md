@@ -217,7 +217,7 @@ Scalability: Tested up to 100K+ memories with consistent performance
 
 ```env
 # Required - Notion Integration
-NOTION_TOKEN=secret_YourIntegrationTokenHere
+NOTION_TOKEN=your_notion_token_here
 NOTION_DATABASE_ID=your-database-id-here
 
 # Optional - Obsidian Mirror (Git-backed markdown backup)
