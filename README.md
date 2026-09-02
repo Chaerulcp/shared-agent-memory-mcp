@@ -434,6 +434,30 @@ node dist/cli.js cache rebuild
 
 ---
 
+## 🔌 Client Integration Guides
+
+For detailed setup instructions for each supported client platform:
+
+| Client | Platform | Status | Guide |
+|--------|----------|--------|-------|
+| **[Claude Code](./docs/integrations/claude-code.md)** | VS Code Extension | ✅ Ready | [Full Setup →](./docs/integrations/claude-code.md) |
+| **[GitHub Copilot CLI](./docs/integrations/copilot-cli.md)** | GitHub CLI | ✅ Ready | [Full Setup →](./docs/integrations/copilot-cli.md) |
+| **[OpenCode](./docs/integrations/opencode.md)** | MCP Client | ✅ Ready | [Full Setup →](./docs/integrations/opencode.md) |
+| **[Cline](./docs/integrations/cline.md)** | Autonomous Agent | 🚧 In Progress | [Coming Soon](./docs/integrations/cline.md) |
+
+👉 **Quick reference:** See [Client Integration Overview](./docs/integrations/README.md) for comparison table and troubleshooting.
+
+### Example Configurations
+
+Ready-to-use configuration files available in [`examples/mcp-configs/`](../examples/mcp-configs/):
+- `claude-code.json` - Claude Code + VS Code setup
+- `copilot-cli.json` - GitHub Copilot CLI configuration  
+- `opencode.json` - OpenCode MCP client config
+
+Simply copy, replace placeholder tokens (`${NOTION_TOKEN}`), and restart your client!
+
+---
+
 ## 📖 Documentation Structure
 
 | Document | Purpose | Audience |

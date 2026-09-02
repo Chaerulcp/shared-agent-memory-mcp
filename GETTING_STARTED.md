@@ -171,7 +171,21 @@ See `examples/copilot-cli.mcp-config.json` for template configuration.
 
 ### Other Clients
 
-See [`docs/integrations/`](./docs/integrations/) for specific guides.
+For detailed integration guides with step-by-step setup instructions for all platforms, see the **[Client Integration Guide]**(docs/integrations/README.md).
+
+#### Supported Clients
+
+We provide complete integration setups for:
+
+| Client | Platform | Status | Example Config |
+|--------|----------|--------|----------------|
+| **Claude Code** | VS Code Extension | ✅ Ready | [Examples](examples/mcp-configs/claude-code.json) |
+| **GitHub Copilot CLI** | GitHub CLI | ✅ Ready | [Examples](examples/mcp-configs/copilot-cli.json) |
+| **OpenCode** | MCP Client | ✅ Ready | [Examples](examples/mcp-configs/opencode.json) |
+| **Cline** | Autonomous Agent | 🚧 Coming Soon | - |
+| **Gemini CLI** | Google AI | 🚧 Coming Soon | - |
+
+👉 **Setup guide for each client:** See sections below or visit [Client Integrations](docs/integrations/README.md) directory.
 
 ---
 
