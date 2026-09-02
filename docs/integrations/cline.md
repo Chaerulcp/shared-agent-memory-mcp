@@ -1,67 +1,61 @@
-# Cline Integration Guide (Coming Soon)
+# Cline Integration
 
-**Integration documentation for Cline autonomous coding agent.**
+Use Shared Agent Memory MCP from Cline through its stdio MCP configuration.
 
-📍 **Target Platform:** Cline Autonomous Agent  
-⏱️ **Estimated Setup Time:** ~5 minutes  
-🚧 **Status:** In Progress - Expected Q4 2026  
+**Status:** Configuration template verified; end-to-end Cline session not independently tested in this repository.
+**Setup time:** About 5 minutes
 
----
+## Prerequisites
 
-## 🎯 Planned Features
+- Node.js 22 or newer
+- A built checkout of this repository
+- A Notion integration token and database ID
 
-- ✅ **Autonomous Memory-Aware Workflows** - Cline makes decisions with full project context
-- ✅ **Self-Directed Refactoring** - Smart refactoring with memory of past decisions
-- ✅ **Multi-file Change Coordination** - Understands relationships between files through stored patterns
-- ✅ **Project-wide Pattern Learning** - Learns from your team's historical decisions
-- ✅ **Long-term Context Retention** - Remembers architectural decisions across months
+Build the server first:
 
----
+```bash
+npm ci
+npm run build
+```
 
-## 🔄 Current Status
+## Configuration
 
-We are actively working on Cline integration. Here's what's being developed:
+Open Cline's MCP settings and add this server. Replace the placeholders with your own values and use an absolute path to your checkout.
 
-### Completed ✅
-- MCP protocol compatibility testing
-- Notion API rate limit handling
-- Large-scale refactor safety checks
-- Multi-agent conflict resolution
+```json
+{
+  "mcpServers": {
+    "shared-agent-memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "your_notion_token_here",
+        "NOTION_DATABASE_ID": "your_notion_database_id_here"
+      },
+      "disabled": false,
+      "alwaysAllow": false
+    }
+  }
+}
+```
 
-### In Progress 🚧
-- Cline configuration schema
-- Autonomy level controls
-- Memory sandbox isolation
-- Permission management system
+Do not commit this configuration when it contains real credentials. Keep secrets in the client environment or a local, ignored configuration file.
 
-### Coming Soon 📅
-- Full integration guide (this document)
-- Example configurations
-- Performance benchmarks
-- Security hardening
+## Verify in Cline
 
----
+1. Restart or reload Cline after saving the MCP configuration.
+2. Confirm that `shared-agent-memory` appears as an available MCP server.
+3. Ask Cline to save a harmless test memory.
+4. Ask it to search for that memory.
+5. Remove the test memory after verification.
 
-## 📋 What You Can Do Now
+If the server does not start, run locally:
 
-While the official Cline integration is in progress, you can:
+```bash
+node dist/cli.js doctor
+```
 
-1. **Use Alternative Clients:** See guides for [Claude Code](./claude-code.md), [Copilot CLI](./copilot-cli.md), or [OpenCode](./opencode.md)
-2. **Preview Configuration:** Check examples directory for upcoming schemas
-3. **Provide Feedback:** Let us know what features you need most
+See the [integration overview](./README.md) and [contributing guide](../../CONTRIBUTING.md) for more information.
 
----
-
-## 💬 Get Involved
-
-Want this integration sooner? Let us know!
-
-- ⭐ **Star this issue** if you're interested: [Cline Integration Request](https://github.com/Chaerulcp/shared-agent-memory-mcp/issues/new)
-- 💬 **Share requirements:** What specific workflows do you want to enable with Cline?
-- 🤝 **Contribute:** Want to help build it? See [CONTRIBUTING.md](../../CONTRIBUTING.md)
-
----
-
-**Copyright © 2026-present** - All rights reserved globally.
-
-*Last Updated: 2026-09-03 | Version: 1.4.0 | Status: 🚧 In Progress*
+**License:** MIT

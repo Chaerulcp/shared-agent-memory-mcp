@@ -18,8 +18,8 @@ This directory contains detailed, step-by-step setup guides for each supported c
 | [Antigravity CLI](antigravity.md) | Google Antigravity CLI | 3 min | [`Guide`](antigravity.md) | ✅ Ready |
 | [Codex VSCode Extension](codex-vscode.md) | VSCode AI Extension | 2 min | [`Guide`](codex-vscode.md) | ✅ Ready |
 | [Codex CLI](codex-cli.md) | Command Line AI | 3 min | [`Guide`](codex-cli.md) | ✅ Ready |
-| [Cline](cline.md) | Autonomous Agent | 5 min | Coming Soon | 🚧 In Progress |
-| [Gemini CLI](gemini-cli.md) | Google AI CLI | TBD | - | 🚧 Planned |
+| [Cline](cline.md) | Autonomous Agent | 5 min | Guide | 🧪 Template verified |
+| [Gemini CLI](gemini-cli.md) | Google AI CLI | 5 min | Guide | 🧪 Template verified |
 
 ---
 
@@ -27,7 +27,7 @@ This directory contains detailed, step-by-step setup guides for each supported c
 
 Before configuring any client, ensure you have:
 
-1. ✅ **Agent Memory MCP Server installed** (`npm install @chaerulcp/agent-memory-mcp`)
+1. ✅ **Shared Agent Memory MCP built from source** (`npm ci && npm run build`)
 2. ✅ **Notion Integration Token** configured in `.env` file
 3. ✅ **Database ID** from your Notion memory database
 4. ✅ **Node.js 22+** runtime available

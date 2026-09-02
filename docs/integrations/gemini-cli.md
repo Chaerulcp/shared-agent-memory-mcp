@@ -1,37 +1,58 @@
-# Gemini CLI Integration Guide (Coming Soon)
+# Gemini CLI Integration
 
-**Integration documentation for Google Gemini Command Line Interface.**
+Use Shared Agent Memory MCP from Gemini CLI through its MCP server configuration.
 
-📍 **Target Platform:** Google Gemini CLI  
-⏱️ **Estimated Setup Time:** TBD  
-🚧 **Status:** Planned for Q1 2027  
+**Status:** Configuration template verified against a local Gemini/Antigravity MCP configuration; end-to-end Gemini CLI session not independently tested in this repository.
+**Setup time:** About 5 minutes
 
----
+## Prerequisites
 
-## 🎯 Planned Features
+- Gemini CLI with MCP server support enabled
+- Node.js 22 or newer
+- A built checkout of this repository
+- A Notion integration token and database ID
 
-- ✅ AI-powered command execution with memory context
-- ✅ Project convention enforcement in CLI
-- ✅ Command history and decision tracking
-- ✅ Cross-session context persistence
+Build the server:
 
----
+```bash
+npm ci
+npm run build
+```
 
-## 🔄 Current Status
+## Configuration
 
-We are actively monitoring Gemini CLI development. This integration will be added when:
-- Gemini CLI supports MCP protocol officially
-- API stability is confirmed
-- Security best practices are established
+Add this entry to the MCP configuration used by Gemini CLI. Use an absolute path to your checkout.
 
----
+```json
+{
+  "mcpServers": {
+    "shared-agent-memory": {
+      "command": "node",
+      "args": ["C:/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "your_notion_token_here",
+        "NOTION_DATABASE_ID": "your_notion_database_id_here"
+      }
+    }
+  }
+}
+```
 
-## 💬 Want this sooner?
+Do not commit real tokens or database credentials. Keep local configuration outside Git or in an ignored file.
 
-Let us know in [GitHub Discussions](https://github.com/Chaerulcp/shared-agent-memory-mcp/discussions)!
+## Verify
 
----
+1. Restart Gemini CLI after changing its MCP configuration.
+2. Confirm `shared-agent-memory` is listed as an available MCP server.
+3. Save and search a harmless test memory.
+4. Remove the test memory after verification.
 
-**Copyright © 2026-present** - All rights reserved globally.
+If startup fails, run:
 
-*Last Updated: 2026-09-03 | Version: 1.4.0 | Status: 🚧 Planned*
+```bash
+node dist/cli.js doctor
+```
+
+See the [integration overview](./README.md) and [getting started guide](../../GETTING_STARTED.md).
+
+**License:** MIT
