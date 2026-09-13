@@ -1,606 +1,94 @@
 # Shared Agent Memory MCP
 
 [![CI](https://github.com/Chaerulcp/shared-agent-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Chaerulcp/shared-agent-memory-mcp/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/Chaerulcp/shared-agent-memory-mcp?display_name=tag)](https://github.com/Chaerulcp/shared-agent-memory-mcp/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.4.0)
 
-**Intelligent shared memory infrastructure for AI coding agents** — A human-auditable, Notion-first memory system with tiered storage architecture, hybrid search optimization, and ultra-fast local caching. Works seamlessly with Cline, OpenCode, Claude Code, GitHub Copilot, Gemini CLI, Hermes, and other MCP-compatible clients.
+A shared, human-auditable memory service for MCP-compatible coding agents. Notion holds the authoritative records; a local SQLite FTS5 cache handles eligible keyword searches; an optional multilingual embedding model enables semantic and hybrid search; an Obsidian vault can mirror records as Markdown.
 
----
+## What works today
 
-## 🚀 Quick Start (5 Minutes)
+- Six MCP tools: `memory_search`, `memory_recent`, `memory_get`, `memory_add`, `memory_update`, and `memory_delete`.
+- One Notion database shared by Cline, OpenCode, Claude Code, Copilot, Hermes, and other MCP clients.
+- Project, agent, category, tag, importance, and provenance metadata. Optional Notion properties are used when present in the database schema.
+- A CLI for setup, CRUD, export, cache maintenance, diagnostics, conflict inspection, and Notion-to-Obsidian sync or watch.
+- Conflict copies preserve manually edited Obsidian files during sync. Git commit and push for the vault are best-effort operations.
 
-Already familiar with MCP servers? **Jump straight into action:**
+### Search and sync boundaries
 
-```bash
-# 1. Clone & install
+`memory_search` and CLI `search` default to `keyword` mode. A fresh SQLite FTS5 cache handles eligible active-memory keyword queries; requests with unsupported cache filters or a stale cache query Notion instead. After writes, the cache is invalidated until the next `sync` or `cache rebuild`.
+
+Set `mode` to `semantic` or `hybrid` in `memory_search`, or use CLI `search --mode semantic|hybrid`, to search a **fresh local cache** with the [multilingual MiniLM model](https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2). Semantic mode ranks by embedding similarity; hybrid mode combines those results with FTS5 keyword results. The first such query downloads model files to the local model cache and embeds matching cached records, so it can take longer. Later queries reuse persisted record vectors; a changed title or content is re-embedded. Only the title and first 1,200 content characters are embedded. Memory text is processed locally, while downloading model files requires network access. Run `cache rebuild` or `sync` from the same working directory as the MCP server before using these modes. If the cache is stale or incomplete, they report an error instead of silently returning keyword-only results.
+
+The older tiered-memory, incremental-index, ranking, `hybrid-search.ts`, and `vector-search.ts` modules remain experimental and are not used by the active search path. The older vector module still uses hash-based mock embeddings; the active semantic implementation is in `semantic-search.ts`. No reproducible end-to-end latency or scale benchmark is shipped.
+
+Notion is the source of truth. `sync` and `watch` copy Notion records to Obsidian. Changes edited in Obsidian are **not written back to Notion**.
+
+If a Markdown file was edited after its last sync, the next sync leaves it intact and writes the latest Notion version to a `.conflict.md` copy. Use `conflicts` to list these files and `resolve <path> --accept-notion` to apply the Notion version with a backup of the manual file. `--keep-obsidian` keeps the manual file; because Notion remains authoritative, a later sync can report the same conflict until the records agree. Git commits include the sync manifest and Markdown files with a Notion ID in their frontmatter; unrelated vault notes are left out. CLI warnings and the `obsidian.error`, `cache.error`, and `git` fields in MCP write results report mirror, cache, commit, or push failures. These local failures do not undo a completed Notion write; repair the local state and run `sync` rather than repeating `add`.
+
+## Requirements
+
+- Node.js 22 or newer
+- A Notion integration token and a database shared with that integration
+- Optional: an Obsidian vault backed by Git for Markdown mirroring
+
+## Quick start
+
+```powershell
 git clone https://github.com/Chaerulcp/shared-agent-memory-mcp.git
 cd shared-agent-memory-mcp
-npm install
-npm run build
-
-# 2. Configure (copy example & edit)
-Copy-Item .env.example .env
-# Edit .env with your Notion integration token & database ID
-
-# 3. Test it works
-node dist/cli.js doctor
-
-# ✅ Done! Your agent can now use intelligent memory.
-```
-
-**Detailed setup guide:** [`GETTING_STARTED.md`](./GETTING_STARTED.md)
-
----
-
-## 🔍 Why Use This?
-
-Coding agents repeat decisions, forget project conventions, and lose context as work moves between tools. **Shared Agent Memory MCP** gives them one durable memory store that multiple agents can share.
-
-### Design Principles
-
-| Principle | What It Means | Benefit |
-|-----------|---------------|---------|
-| **Shared** | One memory database serves multiple agents | Eliminate redundant context rebuilding |
-| **Human-Auditable** | Review memories as Notion pages or Markdown files | Full transparency, easy debugging |
-| **Notion-First** | Notion is the authoritative source of truth | Leverage existing workflows & collaboration |
-| **Safe by Default** | Credentials stay outside content & repo | Production-ready security out-of-box |
-
----
-
-## ✨ What's New in v1.4.0
-
-### 🚀 Major Performance Improvements
-
-**CRUD Operations Speedup:**
-
-| Operation | Before v1.3 | After v1.4 | Improvement |
-|-----------|-------------|------------|-------------|
-| Add Memory | 120ms | 3ms | **40× faster** |
-| Delete Memory | 95ms | 2ms | **47× faster** |
-| Update Memory | 110ms | 4ms | **27× faster** |
-| Search after changes | 450ms | 45ms | **10× faster** |
-
-**Search Latency Reduction:**
-
-| Memory Count | Before | After | Improvement |
-|--------------|--------|-------|-------------|
-| 1K items | 45ms | 12ms | **73% faster** |
-| 10K items | 450ms | 90ms | **80% faster** |
-| 100K+ items | ~4s | ~800ms | **Scalable** |
-
----
-
-### 🎯 New Intelligent Features
-
-#### 1. Tiered Memory Pool System
-
-Smart storage optimization across three tiers:
-
-```mermaid
-flowchart LR
-    A[Query] --> B{Tier Router}
-    B -->|Hot<br/>Top 100 access| C[LRU Cache<br/>sub-millisecond]
-    B -->|Warm<br/>Active memories| D[WARM Storage<br/>~10ms]
-    B -->|Cold<br/>Archived| E[COLD Storage<br/>~50ms compressed]
-    C --> F[Results]
-    D --> F
-    E --> F
-```
-
-**Implementation:**
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
-
-// Automatically routes to optimal tier based on access patterns
-const hotMemory = await memoryPool.get('frequently-used-convention'); // <1ms
-```
-
-**Benefits:**
-- **60-80% reduction** in disk I/O through smart tiering
-- Automatic promotion/demotion based on usage patterns  
-- Transparent to application code (drop-in replacement)
-
-#### 2. Incremental Index System
-
-Write-Ahead Logging (WAL) + FTS5 full-text search for crash-safety:
-
-```typescript
-import { incrementalIndex } from '@chaerulcp/agent-memory-mcp';
-
-// WAL ensures no data loss on crashes
-await incrementalIndex.add({
-  id: 'memory-123',
-  title: 'React Hook Pattern',
-  content: 'UseEffect cleanup patterns...',
-  timestamp: Date.now()
-});
-```
-
-**Features:**
-- Atomic operations with WAL protection
-- FTS5 optimized for natural language queries
-- Automatic index maintenance during low-I/O periods
-
-#### 3. Hybrid Search Router
-
-Intelligently combines keyword + semantic search:
-
-```typescript
-import { hybridSearch } from '@chaerulcp/agent-memory-mcp';
-
-// Automatically detects query type & optimizes
-const results = await hybridSearch('React authentication best practices', {
-  limit: 10,
-  rankBy: ['relevance', 'access-pattern', 'recency']
-});
-```
-
-**Router Strategy:**
-- **Keyword-heavy queries** → FTS5 BM25 scoring
-- **Natural language queries** → Vector similarity (hybrid RRF fusion)
-- **Complex multi-term** → Weighted combination of both
-
-#### 4. Query Ranking Optimizer
-
-Multi-factor scoring for perfect result ordering:
-
-```typescript
-const rankedResults = await hybridSearch(query, {
-  ranking: {
-    weights: {
-      textRelevance: 0.4,   // BM25/TF-IDF score
-      timeDecay: 0.25,      // Recent memories prioritized
-      accessPattern: 0.2,   // Frequently accessed boosted
-      categoryWeight: 0.15  // Project-specific priority
-    }
-  }
-});
-```
-
-#### 5. Vector Search Foundation
-
-Hash-based embeddings ready for ONNX upgrade:
-
-```typescript
-import { vectorSearch } from '@chaerulcp/agent-memory-mcp';
-
-// Current: Mock hash-based cosine similarity (fast, no ML deps)
-// Future: Real ONNX sentence-transformers model
-const similar = await vectorSearch.similar('login flow error', {
-  topK: 5,
-  minScore: 0.7
-});
-```
-
-**Architecture:**
-```typescript
-interface EmbeddingVector {
-  dimensions: number;        // Currently 384 (ready for real models)
-  distanceMetric: 'cosine' | 'euclidean';
-  encoding: 'hash-based' | 'real-embedding';
-}
-
-// Seamless migration path to real embeddings
-// Just swap encoding mode - API stays identical
-```
-
----
-
-## 📊 Performance Benchmarks
-
-All tests performed on MacBook Pro M2, Node.js 22:
-
-```
-Scenario: 10,000 memories indexed
-┌──────────────────────┬─────────┬─────────┬────────────┐
-│ Operation            │ v1.3    │ v1.4    │ Improvement│
-├──────────────────────┼─────────┼─────────┼────────────┤
-│ Add single memory    │ 120 ms  │ 3 ms    │ 40× ⚡     │
-│ Delete memory        │ 95 ms   │ 2 ms    │ 47× ⚡     │
-│ Update memory        │ 110 ms  │ 4 ms    │ 27× ⚡     │
-│ Simple keyword search│ 450 ms  │ 90 ms   │ 80% ↓      │
-│ Complex hybrid search│ 890 ms  │ 112 ms  │ 87% ↓      │
-│ CRUD batch (100x)    │ 12 s    │ 280 ms  │ 43× ⚡     │
-└──────────────────────┴─────────┴─────────┴────────────┘
-
-I/O Reduction: 60-80% decrease through tiered caching
-Scalability: Tested up to 100K+ memories with consistent performance
-```
-
----
-
-## 🔧 Configuration
-
-### Environment Variables
-
-```env
-# Required - Notion Integration
-NOTION_TOKEN=your_notion_token_here
-NOTION_DATABASE_ID=your-database-id-here
-
-# Optional - Obsidian Mirror (Git-backed markdown backup)
-OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
-
-# Optional - Cache Settings (SQLite in-memory by default)
-CACHE_TTL_MS=300000        # 5 minutes (default)
-MAX_CACHE_SIZE_MB=50       # Memory limit
-
-# Optional - Performance Tuning
-CONCURRENT_THREADS=4       # Parallel indexing threads
-WRITES_PER_BATCH=100       # Batch size for bulk inserts
-```
-
-⚠️ **Security:** Never commit `.env` to Git — already excluded by `.gitignore`.
-
-### MCP Client Configuration
-
-Quick-start configurations for popular clients:
-
-**Claude Code:** [`examples/mcp-configs/claude-code.json`](./examples/mcp-configs/claude-code.json)
-
-**GitHub Copilot:** [`examples/mcp-configs/copilot-cli.json`](./examples/mcp-configs/copilot-cli.json)
-
-**OpenCode:** [`examples/mcp-configs/opencode.json`](./examples/mcp-configs/opencode.json)
-
-Simply copy, replace placeholders (`${NOTION_TOKEN}`), and restart your client.
-
----
-
-## 🏗 Architecture Overview
-
-### High-Level Design
-
-```mermaid
-graph TB
-    User[Developer / Coding Agent] -->|MCP stdio| Client[MCP Client]
-    Client --> Server[(Memory MCP Server)]
-    
-    subgraph "Server Layer"
-        Router[Hybrid Search Router]
-        Pool[Tiered Memory Pool]
-        Index[Incremental Index + WAL]
-        Vector[Vector Search Engine]
-    end
-    
-    Server --> Router
-    Router --> Pool
-    Router --> Vector
-    
-    subgraph "Storage Layer"
-        Hot[Hot Tier: LRU Cache]
-        Warm[Warm Tier: Indexed SQLite]
-        Cold[Cold Tier: Compressed Archive]
-    end
-    
-    Pool --> Hot
-    Pool --> Warm
-    Pool --> Cold
-    
-    subgraph "Sync Layer"
-        Notion[Notion Database ← Source of Truth]
-        Obsidian[Obsidian Vault ← Optional Mirror]
-    end
-    
-    Warm --> Notion
-    Warm --> Obsidian
-```
-
-### Component Responsibilities
-
-| Component | Responsibility | Tech Stack |
-|-----------|----------------|------------|
-| **Memory Pool** | Tiered caching, LRU eviction, access tracking | In-memory Map + TTL |
-| **Incremental Index** | Write-Ahead Logging, FTS5 optimization | SQLite + WAL mode |
-| **Hybrid Router** | Query analysis, routing decision, RRF fusion | Custom algorithm |
-| **Ranking Optimizer** | Multi-factor scoring, weight adjustments | Configurable pipeline |
-| **Vector Engine** | Semantic similarity, embedding management | Hash-based (ONNX-ready) |
-| **Sync Service** | Bi-directional sync with Notion/Obsidian | REST + Git protocols |
-
----
-
-## 🛠 Installation
-
-### Prerequisites
-
-- Node.js 22 or newer ([Download](https://nodejs.org/))
-- Notion account (free tier sufficient)
-- Basic terminal/command line familiarity
-
-### Step-by-Step Setup
-
-```bash
-# 1. Install dependencies
-git clone https://github.com/Chaerulcp/shared-agent-memory-mcp.git
-cd shared-agent-memory-mcp
-npm install
-
-# 2. Build TypeScript
-npm run build
-
-# 3. Configure environment
-Copy-Item .env.example .env
-# Edit .env with your credentials (see above)
-
-# 4. Verify installation
-node dist/cli.js doctor
-# Expected output: "Overall: HEALTHY ✅"
-```
-
-### Get Notion Integration Token
-
-1. Go to [My Integrations](https://www.notion.so/my-integrations)
-2. Click "+ New integration"
-3. Name it "Agent Memory System"
-4. Copy the Internal Integration Token (starts with `secret_`)
-
-### Create Memory Database
-
-**Option A:** Use existing database
-- Find any page/database in Notion
-- Note its URL to extract database ID
-
-**Option B:** Create new database (recommended)
-```
-Page → Add block → Database → Table
-Name it "Agent Memories" or similar
-```
-
-Share database with your integration:
-1. Open database in Notion
-2. Click "Share" button (top right)
-3. Add your integration
-4. Grant "Can edit" permission
-5. Copy database ID from URL
-
-Verify setup:
-```bash
-node dist/cli.js doctor --sync
-```
-
-Should show `Overall: HEALTHY` with your database connected.
-
----
-
-## 🎯 Usage Examples
-
-### Add a Memory
-
-```bash
-node dist/cli.js add \\
-  --title "Project Architecture Decision" \\
-  --content "Using React 19 with TypeScript, implementing composite design pattern." \\
-  --agent developer \\
-  --category convention \\
-  --importance high \\
-  --project backend-service
-```
-
-**Programmatic Usage:**
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
-
-await memoryPool.add({
-  title: 'Authentication Flow Pattern',
-  content: 'Implement OAuth2 with refresh tokens and rotation.',
-  tags: ['security', 'authentication'],
-  metadata: { 
-    projectId: 'auth-service',
-    importance: 'high',
-    createdBy: 'developer-bot'
-  }
-});
-```
-
-### Search Memories
-
-```bash
-# Keyword search
-node dist/cli.js search "React hooks useEffect"
-
-# Natural language query (uses vector + hybrid)
-node dist/cli.js search "best practices for error handling in production"
-
-# Filtered search
-node dist/cli.js search "database schema" --category architecture
-```
-
-### Update/Delete Memories
-
-```bash
-# Update an existing memory
-node dist/cli.js update --id memory-123 --title "Updated Title"
-
-# Soft delete (moves to cold tier, retains history)
-node dist/cli.js delete --id memory-123
-
-# Permanent deletion (requires confirmation)
-node dist/cli.js delete memory-123 --hard
-```
-
-### Health Monitoring
-
-```bash
-# Full diagnostic with sync status
-node dist/cli.js doctor --sync
-
-# Rebuild the local search cache when needed
-node dist/cli.js cache rebuild
-
-# Inspect available commands and options
-node dist/cli.js --help
-```
-
----
-
-## 🔌 Client Integration Guides
-
-For detailed setup instructions for each supported client platform:
-
-| Client | Platform | Status | Guide |
-|--------|----------|--------|-------|
-| **[Claude Code](./docs/integrations/claude-code.md)** | VS Code Extension | ✅ Ready | [Full Setup →](./docs/integrations/claude-code.md) |
-| **[GitHub Copilot CLI](./docs/integrations/copilot-cli.md)** | GitHub CLI | ✅ Ready | [Full Setup →](./docs/integrations/copilot-cli.md) |
-| **[OpenCode](./docs/integrations/opencode.md)** | MCP Client | ✅ Ready | [Full Setup →](./docs/integrations/opencode.md) |
-| **[Cline](./docs/integrations/cline.md)** | Autonomous Agent | 🚧 In Progress | [Coming Soon](./docs/integrations/cline.md) |
-
-👉 **Quick reference:** See [Client Integration Overview](./docs/integrations/README.md) for comparison table and troubleshooting.
-
-### Example Configurations
-
-Ready-to-use configuration files available in [`examples/mcp-configs/`](./examples/mcp-configs/):
-- `claude-code.json` - Claude Code + VS Code setup
-- `copilot-cli.json` - GitHub Copilot CLI configuration  
-- `opencode.json` - OpenCode MCP client config
-
-Simply copy, replace placeholder tokens (`${NOTION_TOKEN}`), and restart your client!
-
----
-
-## 📖 Documentation Structure
-
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| [`README.md`](./README.md) | Complete overview, features, setup | All users |
-| [`GETTING_STARTED.md`](./GETTING_STARTED.md) | 5-minute quick start guide | New users |
-| [`CHANGELOG.md`](./CHANGELOG.md) | Version history & breaking changes | Upgraders |
-| [`RELEASE-NOTES-v1.4.0.md`](./RELEASE-NOTES-v1.4.0.md) | Deep-dive technical details | Developers |
-| [`examples/`](./examples/) | Ready-to-use MCP configs | Integration testing |
-
----
-
-## 🧪 Testing & Quality
-
-### Test Coverage
-
-```
-Total Tests: 46
-Pass Rate: 100% ✅
-Security Audit: 0 vulnerabilities ✅
-Production Validation: HEALTHY ✅
-```
-
-Run tests yourself:
-```bash
-npm test
-# The repository test script runs the complete suite.
-# To run a focused test file directly:
-node --test test/hybrid-search-integration.test.mjs
-```
-
-### CI/CD Pipeline
-
-```yaml
-# .github/workflows/ci.yml
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-      - run: npm ci
-      - run: npm test
-      - run: npm audit --omit=dev
-```
-
----
-
-## 🔄 Migration Guide
-
-### From Previous Versions
-
-**Breaking Changes:** None — fully backward compatible.
-
-**Upgrade Instructions:**
-
-```bash
-# Upgrade a cloned checkout
-# Review the target tag or commit before updating
-git pull --ff-only
 npm ci
 npm run build
-
-# Post-upgrade verification
-node dist/cli.js doctor --sync
-npm test
-
-# Note: This repository is currently documented and installed
-# from source; no public npm package installation is assumed.
+Copy-Item .env.example .env
+# Set NOTION_TOKEN and NOTION_DATABASE_ID in .env
+node dist/cli.js doctor
 ```
 
-**Configuration Updates:**
+Create a Notion integration at [My Integrations](https://www.notion.so/my-integrations), then share the target database with it. To create a new memory database from an existing Notion parent page, set `NOTION_TOKEN` and run `npm run init-db -- <parent-page-url>`. See [Getting Started](./GETTING_STARTED.md) for setup details.
 
-No config changes required — all features auto-enable on upgrade.
+The `doctor` command checks credentials and Notion connectivity. `doctor --sync` also checks the optional vault, watcher, and cache; an unconfigured vault or stale cache can make that extended check report unhealthy.
 
-**Migration Checklist:**
-- [ ] Backup current installation (optional but recommended)
-- [ ] Upgrade package version
-- [ ] Run health check with `--sync` flag
-- [ ] Test basic CRUD operations
-- [ ] Verify search latency meets expectations
-- [ ] Monitor cache hit rates over first week
+## CLI examples
 
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these guidelines:
-
-1. **Read `CONTRIBUTING.md`** before starting work
-2. **Create feature branches** from `develop` branch
-3. **Write tests** for new functionality (maintain 100% coverage)
-4. **Update documentation** alongside code changes
-5. **Follow commit conventions**: `feat:`, `fix:`, `docs:`, etc.
-
-### Development Setup
-
-```bash
-git clone https://github.com/Chaerulcp/shared-agent-memory-mcp.git
-cd shared-agent-memory-mcp
-
-# Install dev dependencies
-npm install --include=dev
-
-# Run the complete test suite
-npm test
-
-# Rebuild after source changes
-npm run build
+```powershell
+node dist/cli.js add --title "Use TypeScript for API" --content "The API uses TypeScript." --agent shared --category decision --project backend-service
+node dist/cli.js search "TypeScript API" --project backend-service
+node dist/cli.js recent --limit 5
+node dist/cli.js get YOUR_NOTION_PAGE_ID
+node dist/cli.js update YOUR_NOTION_PAGE_ID --title "Use TypeScript for backend API"
+node dist/cli.js delete YOUR_NOTION_PAGE_ID
+node dist/cli.js cache rebuild
+node dist/cli.js cache search "TypeScript"
+node dist/cli.js search "cara memperbaiki mobil" --mode semantic --project backend-service
+node dist/cli.js search "TypeScript API" --mode hybrid --project backend-service
+node dist/cli.js sync --dry-run
 ```
 
----
+`delete` archives by default; `--hard` moves the Notion page to trash. `cache rebuild` and `sync` read all Notion records. `sync --dry-run` only reads Notion and does not write the cache, vault, or Git.
 
-## 🙏 Acknowledgments
+For all commands and accepted values, run `node dist/cli.js --help`.
 
-Built with incredible open-source projects:
+## MCP client setup
 
-- **Notion API** — Excellent platform for structured data
-- **SQLite** — Lightweight, reliable database engine  
-- **TypeScript** — Type safety throughout the codebase
-- **Node.js** — Fast, modern runtime
-- **MCP Protocol** — Standardized agent communication
+Use `node dist/index.js` as a stdio MCP server and pass `NOTION_TOKEN` and `NOTION_DATABASE_ID` through your client's environment or the local `.env` file. Never commit `.env` or put credentials in memory content.
 
-Thanks to early adopters providing valuable feedback and the amazing MCP community!
+Setup guides: [Claude Code](./docs/integrations/claude-code.md), [Codex CLI](./docs/integrations/codex-cli.md), [OpenCode](./docs/integrations/opencode.md), [Copilot CLI](./docs/integrations/copilot-cli.md), [Cline](./docs/integrations/cline.md), [Gemini CLI](./docs/integrations/gemini-cli.md), and [other clients](./docs/integrations/README.md). Example configurations are in [examples/mcp-configs](./examples/mcp-configs).
 
----
+## Architecture
 
-## 📄 License
+`src/index.ts` exposes the MCP tools. `src/store.ts` reads and writes Notion. `src/cache.ts` maintains the disposable SQLite FTS5 and embedding cache at `.cache/memory.sqlite`; `src/semantic-search.ts` runs the local model and ranks cached records. `src/obsidian.ts` writes the optional Markdown mirror and handles Git. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the data flows and cache policy.
 
-This project is licensed under the [MIT License](LICENSE) — free to use, modify, and distribute for personal and commercial purposes.
+## Validation
 
----
+```powershell
+npm test
+```
 
-## 📮 Support & Discussion
+The test script builds TypeScript and runs the repository's automated tests. Local model inference and MCP retrieval were also checked manually with an Indonesian-to-English paraphrase. The automated tests do not prove live Notion sync, production latency, or quality on a large memory collection; those require separate integration checks and benchmarks. CI also runs a production-dependency audit.
 
-- **Bug Reports:** [GitHub Issues](https://github.com/Chaerulcp/shared-agent-memory-mcp/issues)
-- **Feature Requests:** [GitHub Discussions](https://github.com/Chaerulcp/shared-agent-memory-mcp/discussions)
-- **Q&A:** Join the conversation in Discussions tab
-- **Release Updates:** Follow the [Releases](https://github.com/Chaerulcp/shared-agent-memory-mcp/releases) page
+[v1.5.0 release notes](./RELEASE-NOTES-v1.5.0.md) summarize the current release. The [v1.4.0 development notes](./RELEASE-NOTES-v1.4.0.md) are historical and contain unverified performance claims.
 
----
+## Contributing and support
 
-**Ready to dive deeper?** Check out the [`GETTING_STARTED.md`](./GETTING_STARTED.md) for hands-on setup, or explore the [`examples/`](./examples/) folder for ready-to-use configurations.
+See [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md), and [GitHub Issues](https://github.com/Chaerulcp/shared-agent-memory-mcp/issues).
 
-**Copyright © 2026-present** - All rights reserved globally.
+Licensed under the [MIT License](./LICENSE).

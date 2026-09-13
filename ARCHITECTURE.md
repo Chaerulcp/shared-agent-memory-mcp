@@ -5,7 +5,7 @@ Shared Agent Memory MCP is a small Node.js service with two entry points:
 - An MCP stdio server for coding agents.
 - A CLI for setup, diagnostics, memory operations, synchronization, and cache management.
 
-Notion stores the authoritative memory records. The local SQLite FTS5 database is a disposable search cache. Obsidian is an optional Markdown mirror for human review and Git history.
+Notion stores the authoritative memory records. The local SQLite database holds a disposable FTS5 search snapshot and optional cached embedding vectors. Obsidian is an optional Markdown mirror for human review and Git history.
 
 ## System diagram
 
@@ -15,7 +15,7 @@ flowchart TD
     CLI["CLI"] --> Store["Memory store"]
     Server --> Store
     Store --> Notion[("Notion database\nsource of truth")]
-    Store --> Cache[("SQLite FTS5\nlocal cache")]
+    Store --> Cache[("SQLite FTS5 + embeddings\nlocal cache")]
     Store --> Obsidian["Obsidian Markdown mirror"]
     Obsidian --> Git["Git commit and optional push"]
 ```
@@ -25,7 +25,8 @@ flowchart TD
 - `src/index.ts` validates MCP tool input with Zod and exposes the MCP server.
 - `src/cli.ts` provides setup, doctor, CRUD, export, sync, watch, and cache commands.
 - `src/store.ts` reads and writes Notion, maps pages to memory objects, handles duplicate detection, and coordinates Obsidian synchronization.
-- `src/cache.ts` manages the disposable SQLite FTS5 index and cache freshness metadata.
+- `src/cache.ts` manages the disposable SQLite FTS5 index, cached vectors, and cache freshness metadata.
+- `src/semantic-search.ts` runs a local multilingual embedding model and ranks cached memories by meaning or hybrid fusion.
 - `src/memory-quality.ts` normalizes text and scores possible duplicates.
 - `src/provenance.ts` normalizes provenance values and calculates freshness.
 - `src/obsidian.ts` writes Markdown files, archives files, performs Git synchronization, and prevents duplicate watchers.
@@ -49,7 +50,7 @@ sequenceDiagram
     Server-->>Agent: memory result
 ```
 
-Notion is written before the local mirror. If the mirror or Git operation fails, the Notion write remains authoritative and the failure is reported by the relevant operation.
+Notion is written before the local mirror. If the mirror, cache invalidation, or Git operation fails, the Notion write remains authoritative and the partial failure is reported by the relevant operation.
 
 ## Synchronization flow
 
@@ -71,9 +72,9 @@ sequenceDiagram
 
 A normal synchronization refreshes the cache from the same Notion snapshot used for the Markdown mirror. `sync --dry-run` reads the snapshot but does not write cache, Markdown, or Git.
 
-## Hybrid search policy
+## Search policy
 
-`memory_search` uses the local cache only when all of the following are true:
+Keyword mode is the default. `memory_search` uses the local FTS5 cache only when all of the following are true:
 
 - The query contains text.
 - The requested status is active.
@@ -81,11 +82,13 @@ A normal synchronization refreshes the cache from the same Notion snapshot used 
 - The cache snapshot is no older than five minutes.
 - Each cached row contains the serialized full memory payload.
 
-Project filtering is supported by the cache. Any request outside this policy queries Notion directly. If the cache is missing, stale, corrupt, or incomplete, the search falls back to Notion. The cache never becomes the source of truth.
+Project filtering is supported by the cache. Any keyword request outside this policy queries Notion directly. If the cache is missing, stale, corrupt, or incomplete, keyword search falls back to Notion.
+
+Semantic and hybrid modes are explicit opt-ins. They require a fresh cache with complete serialized records; stale or incomplete snapshots produce an error. The local multilingual model embeds the query and each candidate's title plus the first 1,200 content characters. Record vectors are persisted in the same SQLite file and refreshed when indexed text changes. Semantic mode ranks by cosine similarity; hybrid mode fuses semantic and FTS5 ranks. Filters are applied to the cached records before embedding. The cache never becomes the source of truth.
 
 ## Cache consistency
 
-Successful `memory_add`, `memory_update`, and `memory_delete` operations clear the local cache. This prevents a known local snapshot from being returned after a mutation. The next normal `sync` or `cache rebuild` recreates the index.
+Successful `memory_add`, `memory_update`, and `memory_delete` operations clear the local cache. If invalidation fails, the write result reports a cache error and the running process bypasses that cache for keyword searches. The next normal `sync` or `cache rebuild` recreates the index.
 
 The cache uses a metadata timestamp named `last_sync`. Cache files live under `.cache/` and are excluded from Git. Removing the cache is safe because it contains no authoritative data.
 
@@ -108,7 +111,7 @@ The Notion page schema is detected when optional fields are written. Existing da
 
 - Missing Notion credentials: commands fail with an actionable configuration message.
 - Notion access failure: the operation fails; no cache is refreshed from an incomplete snapshot.
-- Missing or stale cache: search falls back to Notion.
+- Missing or stale cache: keyword search falls back to Notion; semantic and hybrid modes require a rebuild or sync.
 - Failed Git push: local mirror changes and the local commit remain available for retry.
 - Missing Obsidian vault: core Notion memory operations can continue without the mirror.
 - Duplicate watcher: the lock prevents a second polling process.
@@ -117,6 +120,8 @@ The Notion page schema is detected when optional fields are written. Existing da
 ## Security model
 
 Credentials are read from process environment variables or a local `.env` file. They are never part of MCP tool arguments, serialized memory data, Markdown frontmatter, Git commits, or logs. The repository excludes `.env`, SQLite databases, logs, generated output, and local IDE files.
+
+The embedding model is downloaded from Hugging Face on first use and runs locally. Memory text is not sent to an embedding API.
 
 ## Consistency boundaries
 

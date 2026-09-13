@@ -23,6 +23,15 @@ import type { Memory } from "./store.js";
 
 const MANIFEST_FILE = ".shared-agent-memory-sync.json";
 
+function frontmatterNotionId(content: string): string | undefined {
+  const lines = content.split(/\r?\n/);
+  if (lines[0] !== "---") return undefined;
+  const end = lines.indexOf("---", 1);
+  if (end < 0) return undefined;
+  const id = /^id:\s*([0-9a-f-]+)\s*$/i.exec(lines.slice(1, end).find((line) => line.startsWith("id:")) ?? "")?.[1];
+  return id && /^[0-9a-f]{32}$/i.test(id.replace(/-/g, "")) ? id : undefined;
+}
+
 function manifestPath(): string { return join(vaultPath(), MANIFEST_FILE); }
 export function relativeManifestPath(vault: string, file: string): string {
   const root = vault.replace(/\\/g, "/").replace(/\/$/, "");
@@ -75,6 +84,12 @@ export function resolveConflict(conflictFile: string, action: "accept-notion" | 
     const backup = backupFile(target);
     copyFileSync(conflict, target);
     rmSync(conflict);
+    const id = frontmatterNotionId(readFileSync(target, "utf8"));
+    if (id) {
+      const manifest = readManifest();
+      manifest[id] = { path: targetRelative, hash: contentHash(readFileSync(target, "utf8")) };
+      writeManifest(manifest);
+    }
     return { target, backup };
   }
   rmSync(conflict);
@@ -114,7 +129,7 @@ export function initSyncBaseline(force = false): { path: string; count: number }
         if (entry.isDirectory()) { stack.push(full); continue; }
         if (!entry.name.endsWith(".md") || entry.name.endsWith(".conflict.md")) continue;
         const content = readFileSync(full, "utf8");
-        const id = /^id:\s*(.+)$/m.exec(content)?.[1]?.trim();
+        const id = frontmatterNotionId(content);
         if (id) entries.push({ id, path: full, content });
       }
     }
@@ -216,13 +231,12 @@ function findFileById(id: string): string | undefined {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (full !== join(root, ARCHIVE_DIR)) stack.push(full);
+        if (full !== join(vaultPath(), ARCHIVE_DIR)) stack.push(full);
         continue;
       }
-      if (!entry.name.endsWith(".md")) continue;
+      if (!entry.name.endsWith(".md") || entry.name.endsWith(".conflict.md")) continue;
       try {
-        const head = readFileSync(full, "utf8").slice(0, 600);
-        const fileId = /^id:\s*(.+)$/m.exec(head)?.[1]?.trim();
+        const fileId = frontmatterNotionId(readFileSync(full, "utf8"));
         if (fileId && fileId.replace(/-/g, "").toLowerCase() === id.replace(/-/g, "").toLowerCase()) return full;
       } catch {
         /* skip unreadable */
@@ -261,7 +275,8 @@ export function syncMemoryFile(m: Memory, force = false): { path?: string; confl
     const current = readFileSync(existing, "utf8");
     if (isConflict(current, previous?.hash, body)) {
       const conflict = `${existing}.conflict.md`;
-      if (!existsSync(conflict)) writeFileSync(conflict, body, "utf8");
+      if (existsSync(conflict) && readFileSync(conflict, "utf8") !== body) backupFile(conflict);
+      writeFileSync(conflict, body, "utf8");
       return { path: existing, conflict };
     }
   }
@@ -291,12 +306,11 @@ export function archiveMissingMemoryFiles(activeIds: Set<string>): string[] {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         const full = join(dir, entry.name);
         if (entry.isDirectory()) {
-          if (full !== join(root, ARCHIVE_DIR)) stack.push(full);
+          if (full !== join(vaultPath(), ARCHIVE_DIR)) stack.push(full);
           continue;
         }
         if (!entry.name.endsWith(".md")) continue;
-        const head = readFileSync(full, "utf8").slice(0, 600);
-        const fileId = /^id:\s*(.+)$/m.exec(head)?.[1]?.trim();
+        const fileId = frontmatterNotionId(readFileSync(full, "utf8"));
         if (!fileId || active.has(fileId.replace(/-/g, "").toLowerCase())) continue;
         if (entry.name.endsWith(".conflict.md")) {
           rmSync(full);
@@ -356,28 +370,58 @@ function run(cmd: string, args: string[], cwd: string): Promise<string> {
   });
 }
 
-/**
- * Auto-commit (+ push) perubahan vault. Fire-and-forget — kegagalan
- * (repo belum init, offline, dsb.) tidak boleh mengganggu operasi memori.
- */
-export async function gitAutoSync(message: string): Promise<void> {
-  if (!vaultEnabled()) return;
+export type GitSyncResult =
+  | { status: "disabled" | "not-a-repo" | "unchanged" | "pushed" }
+  | { status: "pending-push" | "failed"; message: string };
+
+export async function gitAutoSync(message: string): Promise<GitSyncResult> {
+  if (!vaultEnabled()) return { status: "disabled" };
   const cwd = vaultPath();
-  if (!existsSync(join(cwd, ".git"))) return;
+  if (!existsSync(join(cwd, ".git"))) return { status: "not-a-repo" };
   try {
-    await run("git", ["add", "-A"], cwd);
-    const status = await run("git", ["status", "--porcelain"], cwd);
-    if (!status.trim()) return;
-    await run("git", ["commit", "-m", message, "--quiet"], cwd);
-    // push best-effort; jika offline commit tetap aman, sync berikutnya menyusul
-    try {
-      await run("git", ["push", "--quiet"], cwd);
-    } catch {
-      /* offline / belum ada remote — abaikan */
-    }
+    const paths = await managedGitPaths(cwd);
+    if (paths.length === 0) return { status: "unchanged" };
+    await run("git", ["add", "-A", "--", ...paths], cwd);
+    const status = await run("git", ["status", "--porcelain", "--", ...paths], cwd);
+    if (status.trim()) await run("git", ["commit", "--only", "-m", message, "--quiet", "--", ...paths], cwd);
   } catch {
-    /* jangan pernah menggagalkan penyimpanan memori gara-gara git */
+    return { status: "failed", message: "Commit Git gagal; perubahan Obsidian tetap ada. Periksa git status di vault." };
   }
+  try {
+    await run("git", ["push", "--quiet"], cwd);
+    return { status: "pushed" };
+  } catch {
+    return { status: "pending-push", message: "Commit tersimpan lokal, tetapi push gagal. Jalankan git push di vault untuk detail." };
+  }
+}
+
+async function managedGitPaths(cwd: string): Promise<string[]> {
+  const paths = new Set<string>();
+  if (existsSync(manifestPath())) paths.add(MANIFEST_FILE);
+  const root = join(cwd, MEM_DIR);
+  if (existsSync(root)) {
+    const stack = [root];
+    while (stack.length) {
+      const dir = stack.pop()!;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) { stack.push(full); continue; }
+        if (entry.isFile() && entry.name.endsWith(".md") && frontmatterNotionId(readFileSync(full, "utf8"))) paths.add(relativeVaultPath(full));
+      }
+    }
+  }
+  const tracked = await run("git", ["ls-files", "--cached", "-z", "--", MEM_DIR, MANIFEST_FILE], cwd);
+  for (const path of tracked.split("\0")) {
+    if (!path || !isSafeVaultRelativePath(path)) continue;
+    if (path === MANIFEST_FILE) { paths.add(path); continue; }
+    if (!path.startsWith(`${MEM_DIR}/`) || !path.endsWith(".md") || existsSync(join(cwd, path))) continue;
+    try {
+      if (frontmatterNotionId(await run("git", ["show", `HEAD:${path}`], cwd))) paths.add(path);
+    } catch {
+      continue;
+    }
+  }
+  return [...paths];
 }
 
 /** Tarik perubahan dari remote (dipakai manual sebelum membaca vault dari mesin lain). */

@@ -1,14 +1,24 @@
 import { Client } from "@notionhq/client";
 import { loadConfig, normalizeId } from "./config.js";
-import { archiveMemoryFile, archiveMissingMemoryFiles, gitAutoSync, syncMemoryFile, upsertMemoryFile } from "./obsidian.js";
+import { archiveMemoryFile, archiveMissingMemoryFiles, gitAutoSync, syncMemoryFile, type GitSyncResult } from "./obsidian.js";
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
 import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
+import { searchSemanticCache } from "./semantic-search.js";
 
-function invalidateLocalCache(): void {
-  const cache = createMemoryCache();
-  try { cache.clear(); } finally { cache.close(); }
+let cacheInvalidationFailed = false;
+
+function invalidateLocalCache(): string | undefined {
+  try {
+    const cache = createMemoryCache();
+    try { cache.clear(); } finally { cache.close(); }
+    cacheInvalidationFailed = false;
+    return undefined;
+  } catch (error) {
+    cacheInvalidationFailed = true;
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 function rebuildLocalCache(memories: Memory[]): void {
@@ -18,6 +28,7 @@ function rebuildLocalCache(memories: Memory[]): void {
   } finally {
     cache.close();
   }
+  cacheInvalidationFailed = false;
 }
 
 export function syncCacheForMemories(memories: Memory[], dryRun = false, cachePath?: string): number {
@@ -139,6 +150,28 @@ export interface Memory {
   freshness?: "unknown" | "fresh" | "stale";
 }
 
+export interface MemoryWriteResult {
+  memory: Memory;
+  conflict?: string;
+  mirrorError?: string;
+  cacheError?: string;
+  git: GitSyncResult;
+}
+
+export interface MemoryDeleteResult {
+  mirrorError?: string;
+  cacheError?: string;
+  git: GitSyncResult;
+}
+
+function attemptMirror(action: () => string | undefined): { conflict?: string; mirrorError?: string } {
+  try {
+    return { conflict: action() };
+  } catch (error) {
+    return { mirrorError: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export interface AddMemoryInput {
   title: string;
   content: string;
@@ -173,6 +206,7 @@ export interface UpdateMemoryPatch {
 
 export interface SearchOptions {
   query?: string;
+  mode?: "keyword" | "semantic" | "hybrid";
   agent?: string;
   category?: string;
   tag?: string;
@@ -279,7 +313,7 @@ export function pageToMemory(page: any): Memory {
 
 /* ---------------- operasi memori ---------------- */
 
-export async function addMemory(input: AddMemoryInput): Promise<Memory> {
+export async function addMemory(input: AddMemoryInput): Promise<MemoryWriteResult> {
   const project = resolveProject(input.project);
   const effectiveInput = { ...input, project };
   if (!effectiveInput.allowDuplicate) {
@@ -306,27 +340,32 @@ export async function addMemory(input: AddMemoryInput): Promise<Memory> {
     } as any,
   });
   const memory = pageToMemory(res);
-  upsertMemoryFile(memory);
-  invalidateLocalCache();
-  void gitAutoSync(`memory(${memory.agent}): tambah "${memory.title.slice(0, 60)}"`);
-  return memory;
+  const mirror = attemptMirror(() => syncMemoryFile(memory).conflict);
+  const cacheError = invalidateLocalCache();
+  const git = await gitAutoSync(`memory(${memory.agent}): tambah "${memory.title.slice(0, 60)}"`);
+  return { memory, ...mirror, cacheError, git };
 }
 
 function searchLocalCache(opts: SearchOptions): Memory[] | undefined {
-  if (!opts.query?.trim() || (opts.status ?? "active") !== "active" || opts.agent || opts.category || opts.tag) return undefined;
-  const cache = createMemoryCache();
+  if (cacheInvalidationFailed || !opts.query?.trim() || (opts.status ?? "active") !== "active" || opts.agent || opts.category || opts.tag) return undefined;
   try {
-    if (!cache.isFresh()) return undefined;
-    const rows = cache.search(opts.query, opts.project, opts.limit ?? 10);
-    const memories = rows.map(memoryFromCache).filter((memory): memory is Memory => Boolean(memory));
-    return memories.length === rows.length ? memories : undefined;
-  } finally {
-    cache.close();
+    const cache = createMemoryCache();
+    try {
+      if (!cache.isFresh()) return undefined;
+      const rows = cache.search(opts.query, opts.project, opts.limit ?? 10);
+      const memories = rows.map(memoryFromCache).filter((memory): memory is Memory => Boolean(memory));
+      return memories.length === rows.length ? memories : undefined;
+    } finally {
+      cache.close();
+    }
+  } catch {
+    return undefined;
   }
 }
 
 export async function searchMemories(opts: SearchOptions = {}): Promise<Memory[]> {
   opts = { ...opts, project: opts.project ?? (opts.currentProject ? resolveProject() : undefined) };
+  if (opts.mode === "semantic" || opts.mode === "hybrid") return searchSemanticCache(opts);
   const local = searchLocalCache(opts);
   if (local !== undefined) return local;
   const and: any[] = [];
@@ -387,7 +426,7 @@ export async function getMemory(id: string): Promise<Memory> {
   return pageToMemory(res as any);
 }
 
-export async function updateMemory(id: string, patch: UpdateMemoryPatch): Promise<Memory> {
+export async function updateMemory(id: string, patch: UpdateMemoryPatch): Promise<MemoryWriteResult> {
   const properties: Record<string, unknown> = {};
   if (patch.title !== undefined) properties["Name"] = titleProp(patch.title);
   if (patch.content !== undefined) properties["Content"] = richTextProp(patch.content);
@@ -415,17 +454,17 @@ export async function updateMemory(id: string, patch: UpdateMemoryPatch): Promis
     properties: properties as any,
   });
   const memory = pageToMemory(res);
-  if (memory.status === "archived") {
+  const mirror = attemptMirror(() => {
+    if (memory.status !== "archived") return syncMemoryFile(memory).conflict;
     archiveMemoryFile(memory.id);
-  } else {
-    syncMemoryFile(memory);
-  }
-  invalidateLocalCache();
-  void gitAutoSync(`memory(${memory.agent}): perbarui "${memory.title.slice(0, 60)}"`);
-  return memory;
+    return undefined;
+  });
+  const cacheError = invalidateLocalCache();
+  const git = await gitAutoSync(`memory(${memory.agent}): perbarui "${memory.title.slice(0, 60)}"`);
+  return { memory, ...mirror, cacheError, git };
 }
 
-export async function deleteMemory(id: string, hard = false): Promise<void> {
+export async function deleteMemory(id: string, hard = false): Promise<MemoryDeleteResult> {
   const page_id = normalizeId(id);
   if (hard) {
     const pages = notion().pages as any;
@@ -434,16 +473,16 @@ export async function deleteMemory(id: string, hard = false): Promise<void> {
     } else {
       await pages.update({ page_id, archived: true });
     }
-    archiveMemoryFile(page_id, true);
   } else {
     await notion().pages.update({ page_id, archived: true } as any);
-    archiveMemoryFile(page_id, false);
   }
-  invalidateLocalCache();
-  void gitAutoSync(`memory: hapus/arsipkan ${page_id.slice(0, 8)}`);
+  const mirror = attemptMirror(() => { archiveMemoryFile(page_id, hard); return undefined; });
+  const cacheError = invalidateLocalCache();
+  const git = await gitAutoSync(`memory: hapus/arsipkan ${page_id.slice(0, 8)}`);
+  return { mirrorError: mirror.mirrorError, cacheError, git };
 }
 
-export async function syncNotionToObsidian(dryRun = false, force = false): Promise<{ count: number; synced: string[]; conflicts: string[] }> {
+export async function syncNotionToObsidian(dryRun = false, force = false): Promise<{ count: number; synced: string[]; conflicts: string[]; git?: GitSyncResult }> {
   const memories = await listAll();
   const synced: string[] = [];
   const conflicts: string[] = [];
@@ -462,10 +501,8 @@ export async function syncNotionToObsidian(dryRun = false, force = false): Promi
     if (result.conflict) conflicts.push(result.conflict);
     else if (result.path) synced.push(result.path);
   }
-  if (synced.length > 0) {
-    await gitAutoSync(`sync: perbarui ${synced.length} memori dari Notion`);
-  }
-  return { count: synced.length, synced, conflicts };
+  const git = await gitAutoSync(`sync: perbarui ${synced.length} memori dari Notion`);
+  return { count: synced.length, synced, conflicts, git };
 }
 
 export async function listAll(): Promise<Memory[]> {

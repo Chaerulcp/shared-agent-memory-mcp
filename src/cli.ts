@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 import { loadConfig, loadDotEnv, normalizeId } from "./config.js";
-import { acquireWatcherLock, initSyncBaseline, listConflictFiles, resolveConflict } from "./obsidian.js";
+import { acquireWatcherLock, initSyncBaseline, listConflictFiles, resolveConflict, type GitSyncResult } from "./obsidian.js";
 import { runSetup } from "./setup.js";
 import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
@@ -42,8 +43,9 @@ Perintah:
        Cari cache lokal (jalankan cache rebuild terlebih dahulu)
   cache clear
        Hapus seluruh cache lokal
-  search <query> [--project X | --current-project] [--agent X] [--category X] [--tag X] [--limit N] [--all] [--json]
+  search <query> [--mode keyword|semantic|hybrid] [--project X | --current-project] [--agent X] [--category X] [--tag X] [--limit N] [--all] [--json]
        Cari memori dengan scope project opsional.
+       Mode semantic/hybrid memerlukan cache segar; unduhan model lokal terjadi pada pencarian pertama.
   recent [--limit N] [--agent X] [--json]
        Memori terbaru
   add --title "..." --content "..." [--content-file f] [--agent X]
@@ -139,6 +141,21 @@ function printMemory(m: Memory, opts: { full?: boolean } = {}) {
   else console.log(`  isi      : ${short(m.content, 160)}`);
   console.log(`  url      : ${m.url}`);
   console.log();
+}
+
+function reportGitSync(git: GitSyncResult | undefined): void {
+  if (!git) return;
+  if (git.status === "not-a-repo") console.error("Git vault belum diinisialisasi; perubahan Obsidian belum di-commit.");
+  if (git.status === "pending-push" || git.status === "failed") console.error(`Git: ${git.message}`);
+  if (git.status === "failed") process.exitCode = 2;
+}
+
+function reportMirrorError(error: string | undefined): void {
+  if (error) console.error(`Notion tersimpan, tetapi mirror Obsidian gagal: ${error}`);
+}
+
+function reportCacheError(error: string | undefined): void {
+  if (error) console.error(`Notion tersimpan, tetapi cache lokal gagal dibersihkan: ${error}`);
 }
 
 function parseTags(raw: string | undefined): string[] | undefined {
@@ -237,7 +254,7 @@ async function main() {
       const cfg = loadConfig();
       console.log("== Agent Memory Notion — doctor ==");
       console.log(
-        `NOTION_TOKEN       : ${cfg.notionToken ? `OK (${cfg.notionToken.slice(0, 12)}...)` : "KOSONG — isi di .env"}`
+        `NOTION_TOKEN       : ${cfg.notionToken ? "OK" : "KOSONG — isi di .env"}`
       );
       console.log(
         `NOTION_DATABASE_ID : ${cfg.databaseId ? `OK (${cfg.databaseId})` : "KOSONG — jalankan: npm run init-db -- <parent-page-url>"}`
@@ -302,6 +319,7 @@ async function main() {
       if (!query) throw new Error('Query wajib diisi: node dist/cli.js search "kata kunci"');
       const results = await searchMemories({
         query,
+        mode: z.enum(["keyword", "semantic", "hybrid"]).optional().parse(str("mode")),
         agent: enumCheck(str("agent"), AGENTS, "agent"),
         category: enumCheck(str("category"), CATEGORIES, "category"),
         tag: str("tag"),
@@ -330,7 +348,7 @@ async function main() {
       if (!title || !content) {
         throw new Error("--title dan --content (atau --content-file) wajib diisi.");
       }
-      const mem = await addMemory({
+      const { memory, conflict, mirrorError, cacheError, git } = await addMemory({
         title,
         content,
         agent: enumCheck(str("agent"), AGENTS, "agent") ?? "shared",
@@ -340,7 +358,11 @@ async function main() {
         project: resolveProject(str("project")),
       });
       console.log("Memori tersimpan.\n");
-      printMemory(mem, { full: true });
+      printMemory(memory, { full: true });
+      if (conflict) console.error(`Konflik Obsidian: ${conflict}`);
+      reportMirrorError(mirrorError);
+      reportCacheError(cacheError);
+      reportGitSync(git);
       break;
     }
 
@@ -356,7 +378,7 @@ async function main() {
     case "update": {
       const id = positional[1];
       if (!id) throw new Error("ID wajib diisi: node dist/cli.js update <id> --title/--content/...");
-      const mem = await updateMemory(id, {
+      const { memory, conflict, mirrorError, cacheError, git } = await updateMemory(id, {
         title: str("title"),
         content: str("content"),
         agent: enumCheck(str("agent"), AGENTS, "agent"),
@@ -366,17 +388,24 @@ async function main() {
         status: enumCheck(str("status"), STATUSES, "status"),
       });
       console.log("Memori diperbarui.\n");
-      printMemory(mem, { full: true });
+      printMemory(memory, { full: true });
+      if (conflict) console.error(`Konflik Obsidian: ${conflict}`);
+      reportMirrorError(mirrorError);
+      reportCacheError(cacheError);
+      reportGitSync(git);
       break;
     }
 
     case "delete": {
       const id = positional[1];
       if (!id) throw new Error("ID wajib diisi: node dist/cli.js delete <id>");
-      await deleteMemory(id, bool("hard"));
+      const { mirrorError, cacheError, git } = await deleteMemory(id, bool("hard"));
       console.log(
         bool("hard") ? "Memori dibuang ke trash Notion." : "Memori diarsipkan (status = archived)."
       );
+      reportMirrorError(mirrorError);
+      reportCacheError(cacheError);
+      reportGitSync(git);
       break;
     }
 
@@ -411,6 +440,7 @@ async function main() {
         for (const file of result.conflicts) console.error(`  ${file}`);
         process.exitCode = 2;
       }
+      reportGitSync(result.git);
       break;
     }
 
@@ -444,6 +474,7 @@ async function main() {
           const result = await syncNotionToObsidian();
           console.log(`[${new Date().toISOString()}] Sinkronisasi selesai: ${result.count} file, ${result.conflicts.length} konflik.`);
           for (const file of result.conflicts) console.error(`[${new Date().toISOString()}] Konflik dipertahankan: ${file}`);
+          reportGitSync(result.git);
         } catch (err) {
           console.error(`[${new Date().toISOString()}] Sinkronisasi gagal: ${errMsg(err)}`);
         }

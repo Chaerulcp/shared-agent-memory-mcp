@@ -49,7 +49,8 @@ server.registerTool(
       "USE THIS at the start of a task with relevant keywords, and before making decisions, " +
       "to reuse saved preferences, conventions, and past decisions.",
     inputSchema: {
-      query: z.string().describe("Keywords/phrase to match in title, content, and tags"),
+      query: z.string().describe("Search text; semantic and hybrid modes also match related meaning"),
+      mode: z.enum(["keyword", "semantic", "hybrid"]).default("keyword").describe("Semantic and hybrid modes require a fresh local cache"),
       agent: agentEnum.optional().describe("Only memories saved by this agent"),
       category: categoryEnum.optional(),
       tag: z.string().optional().describe("Exact tag name to filter by"),
@@ -133,7 +134,7 @@ server.registerTool(
   },
   async (args) => {
     try {
-      const memory = await addMemory({
+      const { memory, conflict, mirrorError, cacheError, git } = await addMemory({
         title: args.title,
         content: args.content,
         agent: args.agent,
@@ -148,7 +149,7 @@ server.registerTool(
         freshnessDays: args.freshnessDays,
         supersedes: args.supersedes,
       });
-      return ok({ saved: true, memory });
+      return ok({ saved: true, memory, obsidian: { conflict, error: mirrorError }, cache: { error: cacheError }, git });
     } catch (err) {
       if (err instanceof DuplicateMemoryError) {
         return {
@@ -187,8 +188,8 @@ server.registerTool(
   async (args) => {
     try {
       const { id, ...patch } = args;
-      const memory = await updateMemory(id, patch);
-      return ok({ updated: true, memory });
+      const { memory, conflict, mirrorError, cacheError, git } = await updateMemory(id, patch);
+      return ok({ updated: true, memory, obsidian: { conflict, error: mirrorError }, cache: { error: cacheError }, git });
     } catch (err) {
       return fail(err);
     }
@@ -208,8 +209,8 @@ server.registerTool(
   },
   async (args) => {
     try {
-      await deleteMemory(args.id, args.hard);
-      return ok({ deleted: true, id: args.id, hard: args.hard });
+      const { mirrorError, cacheError, git } = await deleteMemory(args.id, args.hard);
+      return ok({ deleted: true, id: args.id, hard: args.hard, obsidian: { error: mirrorError }, cache: { error: cacheError }, git });
     } catch (err) {
       return fail(err);
     }

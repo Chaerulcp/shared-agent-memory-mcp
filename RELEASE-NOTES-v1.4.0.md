@@ -1,15 +1,16 @@
-# 🎉 RELEASE v1.4.0 - Intelligent Memory Enhancement
+# v1.4.0 development notes
+
+> Historical notes for experimental modules. The latency and scale figures below are not backed by a reproducible end-to-end benchmark in this repository. The tiered-memory, ranking, and legacy hybrid/vector modules described here are not the active search path. The legacy vector module uses hash-based test data; the newer opt-in semantic/hybrid path is documented in [README.md](./README.md).
 
 **📅 Release Date:** September 2, 2026  
 **⚡ Version:** 1.4.0 (Minor Release)  
-**✅ Status:** Production Ready  
-**🚀 Impact:** Revolutionary Performance Improvements  
+**Status:** Historical implementation notes; current product behavior is documented in README.md
 
 ---
 
 ## ✨ What's New in v1.4.0
 
-This release introduces revolutionary performance optimizations and intelligent memory management capabilities that transform your agent memory system from seconds to milliseconds.
+The sections below record the original development claims and module tests. They do not establish end-to-end performance or current MCP capabilities.
 
 ### 🎯 Key Highlights
 
@@ -727,4 +728,4 @@ See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 
 ---
 
-*Version: 1.4.0 | Status: Production Ready | Last Updated: 2026-09-02*
+*Version: 1.4.0 | Historical development notes | Last Updated: 2026-09-02*

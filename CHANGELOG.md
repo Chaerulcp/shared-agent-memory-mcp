@@ -8,6 +8,27 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 No unreleased changes.
 
+## [1.5.0] - 2026-09-13
+
+### Added
+
+- Opt-in local semantic and hybrid search for MCP and CLI, with reusable SQLite embedding vectors.
+
+### Fixed
+
+- Hide the Notion token in `doctor` output.
+- Report Obsidian, cache, and Git failures separately from successful Notion writes.
+- Preserve manual Obsidian edits, refresh conflict copies, and exclude personal notes from automatic Git commits and orphan cleanup.
+
+### Verification
+
+- 61 automated tests passed; live Notion and local Git-vault smoke checks were completed.
+- Production dependency audit reported 0 vulnerabilities.
+
+## [1.4.0] - 2026-09-02
+
+Introduced experimental tiered-memory, index, ranking, hybrid, and vector modules. See [historical development notes](./RELEASE-NOTES-v1.4.0.md); their performance figures are not verified end-to-end benchmarks.
+
 ## [1.3.1] - 2026-09-02
 
 Patch release fixing production archive and conflict lifecycle consistency.
