@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { contentHash } from "../dist/obsidian-conflict.js";
@@ -62,7 +62,9 @@ test("Git commit failure is reported while the mirrored file remains intact", as
   execFileSync("git", ["config", "user.email", "memory@example.test"], { cwd: vault });
   const hooks = join(vault, "hooks");
   mkdirSync(hooks);
-  writeFileSync(join(hooks, "pre-commit"), "#!/bin/sh\nexit 1\n");
+  const hook = join(hooks, "pre-commit");
+  writeFileSync(hook, "#!/bin/sh\nexit 1\n");
+  chmodSync(hook, 0o755);
   execFileSync("git", ["config", "core.hooksPath", hooks], { cwd: vault });
   const mirror = syncMemoryFile(memory);
 
