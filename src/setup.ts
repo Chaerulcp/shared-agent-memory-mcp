@@ -25,6 +25,7 @@ export async function runSetup(options: { dryRun?: boolean } = {}): Promise<numb
   checks.push(["Local .env", existsSync(envFile), envFile]);
   checks.push(["Notion token", Boolean(cfg.notionToken), "set via .env or client environment"]);
   checks.push(["Notion database ID", Boolean(cfg.databaseId), "set via .env or run init <parent-page>"]);
+  checks.push(["Notion data source", true, cfg.dataSourceId || "auto-discover from a single-source database"]);
   checks.push(["Obsidian vault", existsSync(vault), vault]);
   checks.push(["Obsidian Git repository", existsSync(join(vault, ".git")), ".git"]);
   const remote = await command("git", ["remote", "get-url", "origin"], vault);
@@ -36,7 +37,7 @@ export async function runSetup(options: { dryRun?: boolean } = {}): Promise<numb
   }
 
   if (!existsSync(envExample) && !options.dryRun) {
-    writeFileSync(envExample, "# Copy to .env and fill locally; never commit .env.\nNOTION_TOKEN=\nNOTION_DATABASE_ID=\nOBSIDIAN_VAULT_PATH=\n", "utf8");
+    writeFileSync(envExample, "# Copy to .env and fill locally; never commit .env.\nNOTION_TOKEN=\nNOTION_DATABASE_ID=\nNOTION_DATA_SOURCE_ID=\nOBSIDIAN_VAULT_PATH=\n", "utf8");
     console.log(`Created template: ${envExample}`);
   }
   if (!existsSync(envFile)) {

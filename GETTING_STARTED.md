@@ -73,6 +73,8 @@ Edit `.env` with your actual credentials:
 # Required
 NOTION_TOKEN=your_notion_integration_token_here
 NOTION_DATABASE_ID=your_notion_database_id_here
+# Required only when the database contains multiple data sources
+NOTION_DATA_SOURCE_ID=your_memory_data_source_id_here
 
 # Optional - Obsidian mirror sync
 OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
@@ -156,7 +158,8 @@ Create file `claude-code.mcp.json`:
       "args": ["C:/path/to/shared-agent-memory-mcp/dist/index.js"],
       "env": {
         "NOTION_TOKEN": "your-token-here",
-        "NOTION_DATABASE_ID": "your-database-id"
+        "NOTION_DATABASE_ID": "your-database-id",
+        "NOTION_DATA_SOURCE_ID": "your-data-source-id-if-multiple"
       }
     }
   }

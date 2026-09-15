@@ -40,7 +40,7 @@ test("MCP memory_add returns the same page after a lost Notion response", async 
     let creates = 0;
     Client.prototype.request = async function ({ path, method }) {
       if (path.endsWith("/query")) return { results: saved ? [page] : [], has_more: false };
-      if (path.startsWith("databases/")) return { properties: { "Operation Key": { rich_text: {} }, Project: { rich_text: {} } } };
+      if (path.startsWith("data_sources/")) return { properties: { "Operation Key": { rich_text: {} }, Project: { rich_text: {} } } };
       if (method === "get") return page;
       if (method === "post" && path === "pages") {
         creates++;
@@ -65,6 +65,7 @@ test("MCP memory_add returns the same page after a lost Notion response", async 
       ...process.env,
       NOTION_TOKEN: "test-token",
       NOTION_DATABASE_ID: id,
+      NOTION_DATA_SOURCE_ID: id,
       OBSIDIAN_VAULT_PATH: join(root, "absent-vault"),
       MEMORY_CACHE_PATH: join(root, "memory.sqlite"),
     },

@@ -46,6 +46,7 @@ npm ci
 npm run build
 Copy-Item .env.example .env
 # Set NOTION_TOKEN and NOTION_DATABASE_ID in .env
+# Set NOTION_DATA_SOURCE_ID too when the database has multiple data sources
 node dist/cli.js doctor
 ```
 
@@ -78,7 +79,7 @@ For all commands and accepted values, run `node dist/cli.js --help`.
 
 ## MCP client setup
 
-Use `node dist/index.js` as a stdio MCP server and pass `NOTION_TOKEN` and `NOTION_DATABASE_ID` through your client's environment or the local `.env` file. Never commit `.env` or put credentials in memory content.
+Use `node dist/index.js` as a stdio MCP server and pass `NOTION_TOKEN` and `NOTION_DATABASE_ID` through your client's environment or the local `.env` file. The server automatically discovers the target when the database has one data source. For a multi-source database, also set `NOTION_DATA_SOURCE_ID`; the server refuses an ambiguous target instead of writing to the wrong source. This release uses Notion API `2025-09-03` and `@notionhq/client` v5. Never commit `.env` or put credentials in memory content.
 
 The SQLite cache defaults to `.cache/memory.sqlite` under this installation, regardless of a client's working directory. Set `MEMORY_CACHE_PATH` to an absolute path in `.env` or each client's environment when the installation directory is read-only or several installations should share one cache. Existing caches created under other working directories are disposable; run `node dist/cli.js cache rebuild` after switching paths.
 

@@ -33,6 +33,7 @@ test("successful Notion writes report a failed Obsidian mirror without inviting 
   const originalEnv = {
     NOTION_TOKEN: process.env.NOTION_TOKEN,
     NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID,
+    NOTION_DATA_SOURCE_ID: process.env.NOTION_DATA_SOURCE_ID,
     OBSIDIAN_VAULT_PATH: process.env.OBSIDIAN_VAULT_PATH,
     MEMORY_CACHE_PATH: process.env.MEMORY_CACHE_PATH,
   };
@@ -48,6 +49,7 @@ test("successful Notion writes report a failed Obsidian mirror without inviting 
   process.chdir(vault);
   process.env.NOTION_TOKEN = "test-token";
   process.env.NOTION_DATABASE_ID = id;
+  process.env.NOTION_DATA_SOURCE_ID = id;
   process.env.OBSIDIAN_VAULT_PATH = vault;
   process.env.MEMORY_CACHE_PATH = join(vault, ".cache", "memory.sqlite");
   writeFileSync(join(vault, "memories"), "A file blocks the mirror directory");
@@ -79,6 +81,7 @@ test("successful Notion add reports cache invalidation failure and searches Noti
   const originalEnv = {
     NOTION_TOKEN: process.env.NOTION_TOKEN,
     NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID,
+    NOTION_DATA_SOURCE_ID: process.env.NOTION_DATA_SOURCE_ID,
     OBSIDIAN_VAULT_PATH: process.env.OBSIDIAN_VAULT_PATH,
     MEMORY_CACHE_PATH: process.env.MEMORY_CACHE_PATH,
   };
@@ -94,6 +97,7 @@ test("successful Notion add reports cache invalidation failure and searches Noti
   process.chdir(vault);
   process.env.NOTION_TOKEN = "test-token";
   process.env.NOTION_DATABASE_ID = id;
+  process.env.NOTION_DATA_SOURCE_ID = id;
   process.env.OBSIDIAN_VAULT_PATH = join(vault, "missing-vault");
   process.env.MEMORY_CACHE_PATH = join(vault, ".cache", "memory.sqlite");
   writeFileSync(join(vault, ".cache"), "A file blocks the cache directory");
@@ -139,7 +143,7 @@ test("CLI and MCP report Notion success and the Obsidian failure separately", as
     "add", "--title", "Notion write", "--content", "Saved in Notion", "--agent", "shared", "--project", "test",
   ], {
     cwd: vault,
-    env: { ...process.env, NOTION_TOKEN: "test-token", NOTION_DATABASE_ID: id, OBSIDIAN_VAULT_PATH: vault, MEMORY_CACHE_PATH: join(vault, ".cache", "memory.sqlite") },
+    env: { ...process.env, NOTION_TOKEN: "test-token", NOTION_DATABASE_ID: id, NOTION_DATA_SOURCE_ID: id, OBSIDIAN_VAULT_PATH: vault, MEMORY_CACHE_PATH: join(vault, ".cache", "memory.sqlite") },
     encoding: "utf8",
   });
 
@@ -154,7 +158,7 @@ test("CLI and MCP report Notion success and the Obsidian failure separately", as
     command: process.execPath,
     args: ["--require", preload, resolve("dist", "index.js")],
     cwd: vault,
-    env: { ...process.env, NOTION_TOKEN: "test-token", NOTION_DATABASE_ID: id, OBSIDIAN_VAULT_PATH: vault, MEMORY_CACHE_PATH: join(vault, ".cache", "memory.sqlite") },
+    env: { ...process.env, NOTION_TOKEN: "test-token", NOTION_DATABASE_ID: id, NOTION_DATA_SOURCE_ID: id, OBSIDIAN_VAULT_PATH: vault, MEMORY_CACHE_PATH: join(vault, ".cache", "memory.sqlite") },
     stderr: "pipe",
   });
   try {

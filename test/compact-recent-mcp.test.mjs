@@ -76,6 +76,7 @@ test("memory_recent scopes compact results to the requested project", async (t) 
       ...process.env,
       NOTION_TOKEN: "test-token",
       NOTION_DATABASE_ID: id,
+      NOTION_DATA_SOURCE_ID: id,
       MEMORY_CACHE_PATH: join(root, "memory.sqlite"),
       AGENT_PROJECT: "project-alpha",
     },

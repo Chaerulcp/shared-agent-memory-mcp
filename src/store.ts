@@ -9,6 +9,7 @@ import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
 import { searchSemanticCache, type SemanticSearchResult } from "./semantic-search.js";
 import { openOperationJournal, OperationKeyConflictError, OperationPendingError, OperationSchemaError } from "./operation-journal.js";
+import { resolveDataSourceId } from "./notion-data-source.js";
 
 let cacheInvalidationFailed = false;
 
@@ -80,8 +81,8 @@ export class DuplicateMemoryError extends Error {
 }
 
 async function databaseProperties(): Promise<Record<string, any>> {
-  const db: any = await notion().databases.retrieve({ database_id: databaseId() });
-  return db.properties ?? {};
+  const source = await notion().dataSources.retrieve({ data_source_id: await dataSourceId() });
+  return "properties" in source ? source.properties : {};
 }
 
 function optionalProjectProperty(project?: string, properties?: Record<string, any>) {
@@ -226,6 +227,7 @@ const FILTER_QUERY_MAX = 200; // batas panjang nilai filter Notion
 const operationKeySchema = z.string().trim().min(8).max(128).regex(/^[A-Za-z0-9._:-]+$/);
 
 let _client: Client | undefined;
+let _dataSource: { key: string; value: Promise<string> } | undefined;
 
 function notion(): Client {
   if (!_client) {
@@ -235,7 +237,7 @@ function notion(): Client {
         "NOTION_TOKEN belum diset. Isi di file .env atau di bagian env pada config MCP agent."
       );
     }
-    _client = new Client({ auth: notionToken });
+    _client = new Client({ auth: notionToken, notionVersion: "2025-09-03" });
   }
   return _client;
 }
@@ -248,6 +250,22 @@ function databaseId(): string {
     );
   }
   return databaseId;
+}
+
+async function dataSourceId(): Promise<string> {
+  const config = loadConfig();
+  const dbId = databaseId();
+  const key = `${dbId}:${config.dataSourceId}`;
+  if (_dataSource?.key !== key) {
+    _dataSource = { key, value: resolveDataSourceId(notion(), dbId, config.dataSourceId) };
+  }
+  const selected = _dataSource;
+  try {
+    return await selected.value;
+  } catch (error) {
+    if (_dataSource === selected) _dataSource = undefined;
+    throw error;
+  }
 }
 
 /* ---------------- helpers ---------------- */
@@ -323,13 +341,13 @@ async function ensureOperationKeyProperty() {
   const schema = await databaseProperties();
   if (schema["Operation Key"]?.rich_text) return schema;
   if (schema["Operation Key"]) throw new OperationSchemaError();
-  await notion().databases.update({ database_id: databaseId(), properties: { "Operation Key": { rich_text: {} } } });
+  await notion().dataSources.update({ data_source_id: await dataSourceId(), properties: { "Operation Key": { rich_text: {} } } });
   return databaseProperties();
 }
 
 async function findByOperationKey(key: string): Promise<Memory | undefined> {
-  const result = await notion().databases.query({
-    database_id: databaseId(),
+  const result = await notion().dataSources.query({
+    data_source_id: await dataSourceId(),
     filter: { property: "Operation Key", rich_text: { equals: key } },
     page_size: 2,
   });
@@ -361,7 +379,7 @@ export async function addMemory(input: AddMemoryInput): Promise<MemoryWriteResul
   const project = resolveProject(input.project);
   const effectiveInput = { ...input, project };
   const key = input.idempotencyKey === undefined ? undefined : operationKeySchema.parse(input.idempotencyKey);
-  const journalKey = key ? `${databaseId()}:${key}` : undefined;
+  const journalKey = key ? `${await dataSourceId()}:${key}` : undefined;
   let schema = key ? await ensureOperationKeyProperty() : undefined;
   if (key && journalKey && schema) {
     const existing = await findByOperationKey(key);
@@ -388,7 +406,7 @@ export async function addMemory(input: AddMemoryInput): Promise<MemoryWriteResul
     let replayed = false;
     try {
       const res = await notion().pages.create({
-        parent: { database_id: databaseId() },
+        parent: { type: "data_source_id", data_source_id: await dataSourceId() },
         properties: {
           Name: titleProp(input.title),
           Content: richTextProp(input.content),
@@ -481,8 +499,8 @@ export async function searchMemories(opts: SearchOptions = {}): Promise<Semantic
   }
 
   try {
-    const res = await notion().databases.query({
-      database_id: databaseId(),
+    const res = await notion().dataSources.query({
+      data_source_id: await dataSourceId(),
       filter: and.length ? { and } : undefined,
       sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
       page_size: Math.min(Math.max(opts.limit ?? 10, 1), 100),
@@ -584,8 +602,8 @@ export async function listAll(): Promise<Memory[]> {
   const out: Memory[] = [];
   let cursor: string | undefined;
   for (;;) {
-    const res = await notion().databases.query({
-      database_id: databaseId(),
+    const res = await notion().dataSources.query({
+      data_source_id: await dataSourceId(),
       page_size: 100,
       start_cursor: cursor,
     });
@@ -601,12 +619,12 @@ export async function listAll(): Promise<Memory[]> {
 export async function createMemoryDatabase(
   parentPage: string,
   title = "Agent Memory"
-): Promise<{ id: string; url: string }> {
+): Promise<{ id: string; dataSourceId: string; url: string }> {
   const res = await notion().databases.create({
     parent: { type: "page_id", page_id: normalizeId(parentPage) },
     title: [{ text: { content: title } }],
     is_inline: false,
-    properties: {
+    initial_data_source: { properties: {
       Name: { title: {} },
       Content: { rich_text: {} },
       Agent: { select: { options: AGENTS.map((name) => ({ name })) } },
@@ -623,9 +641,12 @@ export async function createMemoryDatabase(
       "Operation Key": { rich_text: {} },
       Created: { created_time: {} },
       Updated: { last_edited_time: {} },
-    } as any,
+    } },
   });
-  return { id: res.id, url: (res as any).url ?? "" };
+  if (!("data_sources" in res) || res.data_sources.length !== 1) {
+    throw new Error("Database dibuat, tetapi Notion tidak mengembalikan satu data source awal.");
+  }
+  return { id: res.id, dataSourceId: res.data_sources[0].id, url: res.url ?? "" };
 }
 
 export async function checkAuth(): Promise<string> {
@@ -636,14 +657,15 @@ export async function checkAuth(): Promise<string> {
 export async function checkDatabase(): Promise<{ ok: boolean; message: string }> {
   try {
     const db: any = await notion().databases.retrieve({ database_id: databaseId() });
-    const props = Object.keys(db.properties ?? {});
+    const source = await notion().dataSources.retrieve({ data_source_id: await dataSourceId() });
+    const props = Object.keys("properties" in source ? source.properties : {});
     const required = ["Name", "Content", "Agent", "Category", "Tags", "Importance", "Status"];
     const missing = required.filter((r) => !props.includes(r));
     if (missing.length > 0) {
-      return { ok: false, message: `Properti database hilang: ${missing.join(", ")}` };
+      return { ok: false, message: `Properti data source hilang: ${missing.join(", ")}` };
     }
     const dbTitle = plainText(db.title);
-    return { ok: true, message: `Database "${dbTitle || "tanpa judul"}" dapat diakses` };
+    return { ok: true, message: `Database "${dbTitle || "tanpa judul"}" dan data source memori dapat diakses` };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return {

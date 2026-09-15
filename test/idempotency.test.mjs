@@ -32,11 +32,13 @@ function fixture(t) {
   const original = {
     NOTION_TOKEN: process.env.NOTION_TOKEN,
     NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID,
+    NOTION_DATA_SOURCE_ID: process.env.NOTION_DATA_SOURCE_ID,
     OBSIDIAN_VAULT_PATH: process.env.OBSIDIAN_VAULT_PATH,
     MEMORY_CACHE_PATH: process.env.MEMORY_CACHE_PATH,
   };
   process.env.NOTION_TOKEN = "test-token";
   process.env.NOTION_DATABASE_ID = id;
+  process.env.NOTION_DATA_SOURCE_ID = id;
   process.env.OBSIDIAN_VAULT_PATH = join(root, "absent-vault");
   process.env.MEMORY_CACHE_PATH = join(root, "memory.sqlite");
   t.after(() => {
@@ -54,11 +56,15 @@ test("memory_add reuses a Notion page when the create response is lost", async (
   let saved = false;
   let creates = 0;
   t.mock.method(Client.prototype, "request", async ({ path, method, body }) => {
-    if (path.endsWith("/query")) return { results: saved ? [page] : [], has_more: false };
-    if (path.startsWith("databases/")) return { properties: { "Operation Key": { rich_text: {} }, Project: { rich_text: {} } } };
+    if (path.endsWith("/query")) {
+      assert.equal(path, `data_sources/${id.replaceAll("-", "")}/query`);
+      return { results: saved ? [page] : [], has_more: false };
+    }
+    if (path.startsWith("data_sources/")) return { properties: { "Operation Key": { rich_text: {} }, Project: { rich_text: {} } } };
     if (method === "get") return page;
     if (method === "post" && path === "pages") {
       creates++;
+      assert.deepEqual(body.parent, { type: "data_source_id", data_source_id: id.replaceAll("-", "") });
       assert.equal(body.properties["Operation Key"].rich_text[0].text.content, key);
       saved = true;
       throw new Error("socket closed after commit");
@@ -80,7 +86,7 @@ test("memory_add does not issue a second create while an earlier outcome is unkn
   let creates = 0;
   t.mock.method(Client.prototype, "request", async ({ path, method }) => {
     if (path.endsWith("/query")) return { results: [], has_more: false };
-    if (path.startsWith("databases/")) return { properties: { "Operation Key": { rich_text: {} } } };
+    if (path.startsWith("data_sources/")) return { properties: { "Operation Key": { rich_text: {} } } };
     if (method === "post" && path === "pages") {
       creates++;
       throw new Error("socket closed after commit");
@@ -97,7 +103,7 @@ test("memory_add rejects a reused key with different content even without a loca
   fixture(t);
   t.mock.method(Client.prototype, "request", async ({ path, method }) => {
     if (path.endsWith("/query")) return { results: [page], has_more: false };
-    if (path.startsWith("databases/")) return { properties: { "Operation Key": { rich_text: {} } } };
+    if (path.startsWith("data_sources/")) return { properties: { "Operation Key": { rich_text: {} } } };
     if (method === "get") return page;
     throw new Error(`Unexpected Notion request: ${method} ${path}`);
   });
@@ -111,13 +117,13 @@ test("memory_add provisions the Operation Key property before its first keyed wr
   let updates = 0;
   t.mock.method(Client.prototype, "request", async ({ path, method, body }) => {
     if (path.endsWith("/query")) return { results: [], has_more: false };
-    if (method === "patch" && path.startsWith("databases/")) {
+    if (method === "patch" && path.startsWith("data_sources/")) {
       assert.deepEqual(body.properties["Operation Key"], { rich_text: {} });
       updates++;
       provisioned = true;
       return { properties: { "Operation Key": { rich_text: {} } } };
     }
-    if (path.startsWith("databases/")) return { properties: provisioned ? { "Operation Key": { rich_text: {} } } : {} };
+    if (path.startsWith("data_sources/")) return { properties: provisioned ? { "Operation Key": { rich_text: {} } } : {} };
     if (method === "post" && path === "pages") return page;
     throw new Error(`Unexpected Notion request: ${method} ${path}`);
   });

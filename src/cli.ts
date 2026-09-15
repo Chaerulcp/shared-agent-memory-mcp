@@ -266,6 +266,9 @@ async function main() {
       console.log(
         `NOTION_DATABASE_ID : ${cfg.databaseId ? `OK (${cfg.databaseId})` : "KOSONG — jalankan: npm run init-db -- <parent-page-url>"}`
       );
+      console.log(
+        `NOTION_DATA_SOURCE_ID: ${cfg.dataSourceId ? `OK (${cfg.dataSourceId})` : "OTOMATIS — valid jika database hanya memiliki satu data source"}`
+      );
       if (!cfg.notionToken) {
         process.exitCode = 1;
         break;
@@ -317,6 +320,7 @@ async function main() {
       const db = await createMemoryDatabase(target, title);
       console.log(`Database berhasil dibuat:\n  URL: ${db.url}\n  ID : ${db.id}\n`);
       upsertEnvVar("NOTION_DATABASE_ID", db.id);
+      upsertEnvVar("NOTION_DATA_SOURCE_ID", db.dataSourceId);
       console.log("Selesai. Verifikasi dengan: npm run doctor");
       break;
     }

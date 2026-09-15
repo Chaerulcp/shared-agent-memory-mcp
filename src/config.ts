@@ -49,6 +49,7 @@ export function loadDotEnv(): void {
 export interface AppConfig {
   notionToken: string;
   databaseId: string;
+  dataSourceId: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -56,6 +57,7 @@ export function loadConfig(): AppConfig {
   return {
     notionToken: (process.env.NOTION_TOKEN ?? "").trim(),
     databaseId: normalizeId(process.env.NOTION_DATABASE_ID ?? ""),
+    dataSourceId: normalizeId(process.env.NOTION_DATA_SOURCE_ID ?? ""),
   };
 }
 
