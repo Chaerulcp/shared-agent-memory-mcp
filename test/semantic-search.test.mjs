@@ -34,6 +34,7 @@ test("semantic cache ranks matching vectors from a fresh snapshot", async () => 
       embed,
     );
     assert.deepEqual(results.map((memory) => memory.id), ["car"]);
+    assert.deepEqual(results[0].match, { excerpt: "Replace the brake pads", start: 0, end: 22 });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -83,6 +84,7 @@ test("hybrid cache retains an exact keyword match when vector similarity is low"
     cache.close();
     const results = await searchSemanticCache({ query: "encryption key", mode: "hybrid" }, path, embed);
     assert.deepEqual(results.map((item) => item.id), ["security"]);
+    assert.equal(results[0].match, undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -130,6 +132,85 @@ test("hybrid all mode includes exact keyword matches from archived memories", as
     cache.close();
     const results = await searchSemanticCache({ query: "encryption key", mode: "hybrid", status: "all" }, path, embed);
     assert.deepEqual(results.map((item) => item.id), ["archived-security"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("semantic cache applies metadata filters before ranking nearest vectors", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-memory-semantic-filter-"));
+  const path = join(dir, "memory.sqlite");
+  const base = {
+    agent: "shared", category: "context", tags: [], importance: "medium",
+    status: "active", url: "", createdAt: "2026-01-01", updatedAt: "2026-01-01",
+  };
+  const memories = [
+    { ...base, id: "wrong-project", title: "Exact car", content: "car", project: "other" },
+    { ...base, id: "archived", title: "Exact car", content: "car", project: "garage", status: "archived" },
+    { ...base, id: "wrong-agent", title: "Exact car", content: "car", project: "garage", agent: "bot" },
+    { ...base, id: "wrong-category", title: "Exact car", content: "car", project: "garage", category: "decision" },
+    { ...base, id: "wrong-tag", title: "Exact car", content: "car", project: "garage", tags: ["old"] },
+    { ...base, id: "eligible", title: "Related vehicle", content: "vehicle", project: "garage", tags: ["service"] },
+  ];
+  const embed = async (texts) => texts.map((text) =>
+    /exact car|automobile/i.test(text) ? Float32Array.of(1, 0) : Float32Array.of(0.7, 0.7)
+  );
+  try {
+    const cache = createMemoryCache(path);
+    cache.replaceAll(memories.map(cacheInput));
+    cache.close();
+    const results = await searchSemanticCache({
+      query: "automobile", project: "garage", agent: "shared", category: "context", tag: "service",
+      limit: 5,
+    }, path, embed);
+    assert.deepEqual(results.map((item) => item.id), ["eligible"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("semantic cache returns no results before loading the model when filters match nothing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-memory-semantic-empty-"));
+  const path = join(dir, "memory.sqlite");
+  try {
+    const cache = createMemoryCache(path);
+    cache.replaceAll([cacheInput({
+      id: "note", title: "Example", content: "Example", project: "other",
+      agent: "shared", category: "context", tags: [], importance: "medium",
+      status: "active", url: "", createdAt: "2026-01-01", updatedAt: "2026-01-01",
+    })]);
+    cache.close();
+    const results = await searchSemanticCache({ query: "example", project: "missing" }, path, async () => {
+      throw new Error("embedding should not run");
+    });
+    assert.deepEqual(results, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("semantic cache retrieves a fact near the end of a long memory", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-memory-semantic-tail-"));
+  const path = join(dir, "memory.sqlite");
+  const content = `${"Garden watering schedule. ".repeat(70)}Rotate deployment keys weekly.`;
+  try {
+    const cache = createMemoryCache(path);
+    cache.replaceAll([cacheInput({
+      id: "long-note", title: "Operational notes", content,
+      project: "ops", agent: "shared", category: "context", tags: [], importance: "medium",
+      status: "active", url: "", createdAt: "2026-01-01", updatedAt: "2026-01-01",
+    })]);
+    cache.close();
+    const embed = async (texts) => texts.map((text) =>
+      /rotate deployment keys|key rotation/i.test(text) ? Float32Array.of(1, 0) : Float32Array.of(0, 1)
+    );
+    const results = await searchSemanticCache({ query: "key rotation", project: "ops" }, path, embed);
+    assert.deepEqual(results.map((memory) => memory.id), ["long-note"]);
+    assert.deepEqual(results[0].match, {
+      excerpt: Array.from(content).slice(1000).join(""),
+      start: 1000,
+      end: Array.from(content).length,
+    });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

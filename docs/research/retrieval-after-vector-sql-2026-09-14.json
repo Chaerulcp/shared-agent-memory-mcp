@@ -1,0 +1,499 @@
+{
+  "fixture": {
+    "sha256": "48eb3cd4281fe1ddaf4448474db2a4fb639f4912a1ebfc823396a866f245169d",
+    "memories": 12,
+    "queries": 16,
+    "filler": "four deterministic unrelated topics"
+  },
+  "environment": {
+    "node": "v22.14.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "11th Gen Intel(R) Core(TM) i5-11400H @ 2.70GHz",
+    "cores": 12
+  },
+  "method": {
+    "repeats": 3,
+    "cache": "fresh SQLite snapshot",
+    "latency": "warm query, one process and cache path",
+    "index": "SQLite FTS5 snapshot; semantic-vec builds separate persistent vec0 table after embedding warmup",
+    "semantic": "local q8 MiniLM; first query builds missing vectors; remote downloads disabled"
+  },
+  "modelBytes": 135392208,
+  "results": [
+    {
+      "size": 100,
+      "indexMs": 17.401,
+      "mode": "semantic",
+      "queries": 16,
+      "samples": 48,
+      "recallAt5": 1,
+      "mrrAt10": 1,
+      "queryResults": [
+        {
+          "id": "q-auth",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-hydration",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-cache",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-clock",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rate",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-conflict",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-schema",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-chunks",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rollback",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-auth-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets-control",
+          "firstRelevantRank": 1
+        }
+      ],
+      "p50Ms": 8.656,
+      "p95Ms": 10.39,
+      "warmupMs": 1197.737,
+      "sqliteBytes": 335872
+    },
+    {
+      "size": 100,
+      "indexMs": 17.401,
+      "mode": "hybrid",
+      "queries": 16,
+      "samples": 48,
+      "recallAt5": 1,
+      "mrrAt10": 1,
+      "queryResults": [
+        {
+          "id": "q-auth",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-hydration",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-cache",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-clock",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rate",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-conflict",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-schema",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-chunks",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rollback",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-auth-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets-control",
+          "firstRelevantRank": 1
+        }
+      ],
+      "p50Ms": 8.498,
+      "p95Ms": 11.175,
+      "warmupMs": 11.205,
+      "sqliteBytes": 335872
+    },
+    {
+      "size": 1000,
+      "indexMs": 25.539,
+      "mode": "semantic",
+      "queries": 16,
+      "samples": 48,
+      "recallAt5": 1,
+      "mrrAt10": 1,
+      "queryResults": [
+        {
+          "id": "q-auth",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-hydration",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-cache",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-clock",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rate",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-conflict",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-schema",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-chunks",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rollback",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-auth-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets-control",
+          "firstRelevantRank": 1
+        }
+      ],
+      "p50Ms": 13.597,
+      "p95Ms": 16.141,
+      "warmupMs": 2822.837,
+      "sqliteBytes": 2867200
+    },
+    {
+      "size": 1000,
+      "indexMs": 25.539,
+      "mode": "hybrid",
+      "queries": 16,
+      "samples": 48,
+      "recallAt5": 1,
+      "mrrAt10": 1,
+      "queryResults": [
+        {
+          "id": "q-auth",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-hydration",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-cache",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-clock",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rate",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-conflict",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-schema",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-chunks",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rollback",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-auth-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets-control",
+          "firstRelevantRank": 1
+        }
+      ],
+      "p50Ms": 14.575,
+      "p95Ms": 17.526,
+      "warmupMs": 15.457,
+      "sqliteBytes": 2867200
+    },
+    {
+      "size": 10000,
+      "indexMs": 152.096,
+      "mode": "semantic",
+      "queries": 16,
+      "samples": 48,
+      "recallAt5": 1,
+      "mrrAt10": 1,
+      "queryResults": [
+        {
+          "id": "q-auth",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-hydration",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-cache",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-clock",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rate",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-conflict",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-schema",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-chunks",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rollback",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-auth-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets-control",
+          "firstRelevantRank": 1
+        }
+      ],
+      "p50Ms": 87.597,
+      "p95Ms": 101.676,
+      "warmupMs": 31310.402,
+      "sqliteBytes": 28200960
+    },
+    {
+      "size": 10000,
+      "indexMs": 152.096,
+      "mode": "hybrid",
+      "queries": 16,
+      "samples": 48,
+      "recallAt5": 1,
+      "mrrAt10": 1,
+      "queryResults": [
+        {
+          "id": "q-auth",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-hydration",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-cache",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-clock",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rate",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-conflict",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-schema",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-chunks",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-rollback",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-auth-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-payment-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-branch-control",
+          "firstRelevantRank": 1
+        },
+        {
+          "id": "q-secrets-control",
+          "firstRelevantRank": 1
+        }
+      ],
+      "p50Ms": 92.473,
+      "p95Ms": 108.021,
+      "warmupMs": 86.896,
+      "sqliteBytes": 28200960
+    }
+  ]
+}

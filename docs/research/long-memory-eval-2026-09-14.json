@@ -1,0 +1,57 @@
+{
+  "fixture": {
+    "memories": 3,
+    "queries": 3,
+    "introCharacters": 1825,
+    "notes": [
+      {
+        "id": "payment",
+        "characters": 1929,
+        "chunks": 2
+      },
+      {
+        "id": "secrets",
+        "characters": 1923,
+        "chunks": 2
+      },
+      {
+        "id": "session",
+        "characters": 1926,
+        "chunks": 2
+      }
+    ]
+  },
+  "environment": {
+    "node": "v22.14.0",
+    "platform": "win32",
+    "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2:q8"
+  },
+  "recallAt1": {
+    "prefixOnly": 0.3333333333333333,
+    "semantic": 1,
+    "hybrid": 1
+  },
+  "results": [
+    {
+      "query": "payment",
+      "expected": "payment",
+      "prefixOnlyTop1": "payment",
+      "semanticTop1": "payment",
+      "hybridTop1": "payment"
+    },
+    {
+      "query": "secrets",
+      "expected": "secrets",
+      "prefixOnlyTop1": "session",
+      "semanticTop1": "secrets",
+      "hybridTop1": "secrets"
+    },
+    {
+      "query": "session",
+      "expected": "session",
+      "prefixOnlyTop1": "payment",
+      "semanticTop1": "session",
+      "hybridTop1": "session"
+    }
+  ]
+}

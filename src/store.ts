@@ -1,11 +1,14 @@
 import { Client } from "@notionhq/client";
+import { createHash } from "node:crypto";
+import { z } from "zod";
 import { loadConfig, normalizeId } from "./config.js";
 import { archiveMemoryFile, archiveMissingMemoryFiles, gitAutoSync, syncMemoryFile, type GitSyncResult } from "./obsidian.js";
 import { findDuplicateCandidates } from "./memory-quality.js";
 import { freshnessState, normalizeProvenance } from "./provenance.js";
 import { cacheInput, createMemoryCache, memoryFromCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
-import { searchSemanticCache } from "./semantic-search.js";
+import { searchSemanticCache, type SemanticSearchResult } from "./semantic-search.js";
+import { openOperationJournal, OperationKeyConflictError, OperationPendingError, OperationSchemaError } from "./operation-journal.js";
 
 let cacheInvalidationFailed = false;
 
@@ -152,6 +155,7 @@ export interface Memory {
 
 export interface MemoryWriteResult {
   memory: Memory;
+  replayed?: boolean;
   conflict?: string;
   mirrorError?: string;
   cacheError?: string;
@@ -186,6 +190,7 @@ export interface AddMemoryInput {
   freshnessDays?: number;
   supersedes?: string;
   allowDuplicate?: boolean;
+  idempotencyKey?: string;
 }
 
 export interface UpdateMemoryPatch {
@@ -218,6 +223,7 @@ export interface SearchOptions {
 
 const CHUNK_SIZE = 1900; // batas aman per rich_text item Notion (max 2000)
 const FILTER_QUERY_MAX = 200; // batas panjang nilai filter Notion
+const operationKeySchema = z.string().trim().min(8).max(128).regex(/^[A-Za-z0-9._:-]+$/);
 
 let _client: Client | undefined;
 
@@ -313,37 +319,106 @@ export function pageToMemory(page: any): Memory {
 
 /* ---------------- operasi memori ---------------- */
 
+async function ensureOperationKeyProperty() {
+  const schema = await databaseProperties();
+  if (schema["Operation Key"]?.rich_text) return schema;
+  if (schema["Operation Key"]) throw new OperationSchemaError();
+  await notion().databases.update({ database_id: databaseId(), properties: { "Operation Key": { rich_text: {} } } });
+  return databaseProperties();
+}
+
+async function findByOperationKey(key: string): Promise<Memory | undefined> {
+  const result = await notion().databases.query({
+    database_id: databaseId(),
+    filter: { property: "Operation Key", rich_text: { equals: key } },
+    page_size: 2,
+  });
+  if (result.results.length > 1) throw new OperationKeyConflictError();
+  const id = result.results[0]?.id;
+  return id ? getMemory(id) : undefined;
+}
+
+function operationFingerprint(input: AddMemoryInput): string {
+  const fields = [input.title, input.content, input.agent, input.category ?? "other", [...(input.tags ?? [])].sort(), input.importance ?? "medium", input.project ?? "", input.source ?? "", input.confidence ?? "", input.verifiedAt ?? "", input.freshnessDays ?? null, input.supersedes ?? ""];
+  return createHash("sha256").update(JSON.stringify(fields)).digest("hex");
+}
+
+function assertOperationMatches(memory: Memory, input: AddMemoryInput, schema: Record<string, unknown>): void {
+  const sameTags = JSON.stringify([...memory.tags].sort()) === JSON.stringify([...(input.tags ?? [])].sort());
+  if (memory.title !== input.title || memory.content !== input.content || memory.agent !== input.agent || memory.category !== (input.category ?? "other") || memory.importance !== (input.importance ?? "medium") || !sameTags || (schema.Project && memory.project !== input.project)) {
+    throw new OperationKeyConflictError();
+  }
+}
+
+async function finishAdd(memory: Memory, replayed = false): Promise<MemoryWriteResult> {
+  const mirror = attemptMirror(() => syncMemoryFile(memory).conflict);
+  const cacheError = invalidateLocalCache();
+  const git = await gitAutoSync(`memory(${memory.agent}): tambah "${memory.title.slice(0, 60)}"`);
+  return { memory, replayed, ...mirror, cacheError, git };
+}
+
 export async function addMemory(input: AddMemoryInput): Promise<MemoryWriteResult> {
   const project = resolveProject(input.project);
   const effectiveInput = { ...input, project };
+  const key = input.idempotencyKey === undefined ? undefined : operationKeySchema.parse(input.idempotencyKey);
+  const journalKey = key ? `${databaseId()}:${key}` : undefined;
+  let schema = key ? await ensureOperationKeyProperty() : undefined;
+  if (key && journalKey && schema) {
+    const existing = await findByOperationKey(key);
+    if (existing) {
+      assertOperationMatches(existing, effectiveInput, schema);
+      const journal = openOperationJournal();
+      try {
+        journal.claim(journalKey, operationFingerprint(effectiveInput));
+        journal.complete(journalKey, existing.id);
+      } finally { journal.close(); }
+      return finishAdd(existing, true);
+    }
+  }
   if (!effectiveInput.allowDuplicate) {
     const duplicates = await findDuplicates(effectiveInput);
     if (duplicates.length > 0) throw new DuplicateMemoryError(duplicates.slice(0, 5));
   }
-  const schema = await databaseProperties();
-  const res = await notion().pages.create({
-    parent: { database_id: databaseId() },
-    properties: {
-      Name: titleProp(input.title),
-      Content: richTextProp(input.content),
-      Agent: selectProp(input.agent),
-      Category: selectProp(input.category ?? "other"),
-      Tags: multiSelectProp(input.tags ?? []),
-      Importance: selectProp(input.importance ?? "medium"),
-      Status: selectProp("active"),
-      ...optionalProjectProperty(project, schema),
-      ...optionalProperty("Source", normalizeProvenance(input).source, schema),
-      ...optionalProperty("Confidence", normalizeProvenance(input).confidence, schema),
-      ...optionalDateProperty("Verified At", input.verifiedAt, schema),
-      ...optionalNumberProperty("Freshness Days", input.freshnessDays, schema),
-      ...optionalProperty("Supersedes", input.supersedes, schema),
-    } as any,
-  });
-  const memory = pageToMemory(res);
-  const mirror = attemptMirror(() => syncMemoryFile(memory).conflict);
-  const cacheError = invalidateLocalCache();
-  const git = await gitAutoSync(`memory(${memory.agent}): tambah "${memory.title.slice(0, 60)}"`);
-  return { memory, ...mirror, cacheError, git };
+  schema ??= await databaseProperties();
+  const fingerprint = key ? operationFingerprint(effectiveInput) : undefined;
+  const journal = journalKey ? openOperationJournal() : undefined;
+  try {
+    if (journalKey && fingerprint && journal?.claim(journalKey, fingerprint) !== "new") throw new OperationPendingError();
+    let memory: Memory;
+    let replayed = false;
+    try {
+      const res = await notion().pages.create({
+        parent: { database_id: databaseId() },
+        properties: {
+          Name: titleProp(input.title),
+          Content: richTextProp(input.content),
+          Agent: selectProp(input.agent),
+          Category: selectProp(input.category ?? "other"),
+          Tags: multiSelectProp(input.tags ?? []),
+          Importance: selectProp(input.importance ?? "medium"),
+          Status: selectProp("active"),
+          ...optionalProjectProperty(project, schema),
+          ...optionalProperty("Source", normalizeProvenance(input).source, schema),
+          ...optionalProperty("Confidence", normalizeProvenance(input).confidence, schema),
+          ...optionalDateProperty("Verified At", input.verifiedAt, schema),
+          ...optionalNumberProperty("Freshness Days", input.freshnessDays, schema),
+          ...optionalProperty("Supersedes", input.supersedes, schema),
+          ...(key ? { "Operation Key": richTextProp(key) } : {}),
+        } as any,
+      });
+      memory = pageToMemory(res);
+      if (journalKey) journal?.complete(journalKey, memory.id);
+    } catch (error) {
+      if (!key) throw error;
+      const recovered = await findByOperationKey(key);
+      if (!recovered) throw new OperationPendingError(error);
+      assertOperationMatches(recovered, effectiveInput, schema);
+      memory = recovered;
+      replayed = true;
+      if (journalKey) journal?.complete(journalKey, memory.id);
+    }
+    return finishAdd(memory, replayed);
+  } finally { journal?.close(); }
 }
 
 function searchLocalCache(opts: SearchOptions): Memory[] | undefined {
@@ -363,7 +438,7 @@ function searchLocalCache(opts: SearchOptions): Memory[] | undefined {
   }
 }
 
-export async function searchMemories(opts: SearchOptions = {}): Promise<Memory[]> {
+export async function searchMemories(opts: SearchOptions = {}): Promise<SemanticSearchResult[]> {
   opts = { ...opts, project: opts.project ?? (opts.currentProject ? resolveProject() : undefined) };
   if (opts.mode === "semantic" || opts.mode === "hybrid") return searchSemanticCache(opts);
   const local = searchLocalCache(opts);
@@ -381,7 +456,7 @@ export async function searchMemories(opts: SearchOptions = {}): Promise<Memory[]
     const projectSchema = schema.Project;
     if (!projectSchema) return [];
     if (projectSchema.select) and.push({ property: "Project", select: { equals: opts.project } });
-    else if (projectSchema.rich_text) and.push({ property: "Project", rich_text: { contains: opts.project } });
+    else if (projectSchema.rich_text) and.push({ property: "Project", rich_text: { equals: opts.project } });
     else return [];
   }
 
@@ -545,6 +620,7 @@ export async function createMemoryDatabase(
       "Verified At": { date: {} },
       "Freshness Days": { number: { format: "number" } },
       Supersedes: { rich_text: {} },
+      "Operation Key": { rich_text: {} },
       Created: { created_time: {} },
       Updated: { last_edited_time: {} },
     } as any,

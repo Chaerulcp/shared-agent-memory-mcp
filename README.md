@@ -17,9 +17,15 @@ A shared, human-auditable memory service for MCP-compatible coding agents. Notio
 
 `memory_search` and CLI `search` default to `keyword` mode. A fresh SQLite FTS5 cache handles eligible active-memory keyword queries; requests with unsupported cache filters or a stale cache query Notion instead. After writes, the cache is invalidated until the next `sync` or `cache rebuild`.
 
-Set `mode` to `semantic` or `hybrid` in `memory_search`, or use CLI `search --mode semantic|hybrid`, to search a **fresh local cache** with the [multilingual MiniLM model](https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2). Semantic mode ranks by embedding similarity; hybrid mode combines those results with FTS5 keyword results. The first such query downloads model files to the local model cache and embeds matching cached records, so it can take longer. Later queries reuse persisted record vectors; a changed title or content is re-embedded. Only the title and first 1,200 content characters are embedded. Memory text is processed locally, while downloading model files requires network access. Run `cache rebuild` or `sync` from the same working directory as the MCP server before using these modes. If the cache is stale or incomplete, they report an error instead of silently returning keyword-only results.
+Set `mode` to `semantic` or `hybrid` in `memory_search`, or use CLI `search --mode semantic|hybrid`, to search a **fresh local cache** with the [multilingual MiniLM model](https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2). Semantic mode ranks by embedding similarity; hybrid mode combines those results with FTS5 keyword results. The first such query downloads model files to the local model cache and embeds matching cached records, so it can take longer. Later queries reuse persisted record vectors and calculate cosine distance with the installed `sqlite-vec` extension; a changed title or content is re-embedded. Long memories are split into overlapping 1,200-character chunks, and the best matching chunk determines each memory's semantic rank. Semantic results and hybrid results with a vector match include `match.excerpt`, `match.start`, and `match.end`; offsets count Unicode characters in `content` and the excerpt spans at most 1,200 characters. Hybrid results found only by keyword have no `match`. The full `content` remains available. Existing cached vectors are re-embedded once after this upgrade. Memory text is processed locally, while downloading model files requires network access. Run `cache rebuild` or `sync` against the same installation and cache path as the MCP server before using these modes. If the cache is stale or incomplete, they report an error instead of silently returning keyword-only results.
 
-The older tiered-memory, incremental-index, ranking, `hybrid-search.ts`, and `vector-search.ts` modules remain experimental and are not used by the active search path. The older vector module still uses hash-based mock embeddings; the active semantic implementation is in `semantic-search.ts`. No reproducible end-to-end latency or scale benchmark is shipped.
+The `match` object is visible in MCP responses and CLI `search --json` output. The normal CLI summary displays the matched excerpt and its character offsets for vector hits; keyword-only results still display the content prefix.
+
+MCP `memory_search` and `memory_recent` accept `response: "compact"` to omit full `content` from their results. Compact results include `excerpt`: the best matching semantic chunk in search (up to 1,200 Unicode characters), a 240-character window around the matching text for keyword-only search, or the first 240 Unicode characters for recent items. If a search term appears only in the title, the keyword excerpt falls back to the content prefix. Vector hits also retain `match.start` and `match.end`; `match.excerpt` is represented by the top-level `excerpt` in compact mode. The default `response: "full"` preserves the existing result shape. Call `memory_get` with a result ID when you need the complete memory.
+
+MCP `memory_recent` also accepts `project` or `currentProject: true` to list only memories from one project. An explicit `project` takes precedence over automatic detection; omitting both retains the global recent list. Project filtering requires a `Project` property in the Notion database.
+
+The older tiered-memory, incremental-index, ranking, `hybrid-search.ts`, and `vector-search.ts` modules remain experimental and are not used by the active search path. The older vector module still uses hash-based mock embeddings; the active semantic implementation is in `semantic-search.ts`.
 
 Notion is the source of truth. `sync` and `watch` copy Notion records to Obsidian. Changes edited in Obsidian are **not written back to Notion**.
 
@@ -45,12 +51,13 @@ node dist/cli.js doctor
 
 Create a Notion integration at [My Integrations](https://www.notion.so/my-integrations), then share the target database with it. To create a new memory database from an existing Notion parent page, set `NOTION_TOKEN` and run `npm run init-db -- <parent-page-url>`. See [Getting Started](./GETTING_STARTED.md) for setup details.
 
-The `doctor` command checks credentials and Notion connectivity. `doctor --sync` also checks the optional vault, watcher, and cache; an unconfigured vault or stale cache can make that extended check report unhealthy.
+The `doctor` command checks credentials and Notion connectivity. `doctor --sync` also checks the optional vault, watcher, and cache and shows the effective cache path; a missing watcher is healthy because polling is optional, while a stale lock is reported as a failure. An unconfigured vault or stale cache can make that extended check report unhealthy.
 
 ## CLI examples
 
 ```powershell
 node dist/cli.js add --title "Use TypeScript for API" --content "The API uses TypeScript." --agent shared --category decision --project backend-service
+node dist/cli.js add --title "Retry-safe memory" --content "A durable fact" --idempotency-key task-2026-09-14-001
 node dist/cli.js search "TypeScript API" --project backend-service
 node dist/cli.js recent --limit 5
 node dist/cli.js get YOUR_NOTION_PAGE_ID
@@ -65,17 +72,21 @@ node dist/cli.js sync --dry-run
 
 `delete` archives by default; `--hard` moves the Notion page to trash. `cache rebuild` and `sync` read all Notion records. `sync --dry-run` only reads Notion and does not write the cache, vault, or Git.
 
+For a write that may be retried, give `memory_add` an `idempotencyKey` or CLI `add` an `--idempotency-key` (8–128 letters, digits, `.`, `_`, `:`, or `-`). Reuse that key only for the same logical write. The first keyed write adds a rich-text `Operation Key` property to an older Notion database if the integration can edit its schema; databases created by `init` include it. A retry finds the existing page and returns `replayed: true`. When a write may have reached Notion but the page cannot yet be found, the local operation journal blocks another create with that key. Keep the key and check Notion before deciding how to resolve the uncertain write. The journal lives beside the configured cache file and survives `cache clear`; clients must share `MEMORY_CACHE_PATH` to coordinate pending writes. Notion does not enforce uniqueness for this property, so simultaneous keyed writes from separate installations with separate journals are not atomic.
+
 For all commands and accepted values, run `node dist/cli.js --help`.
 
 ## MCP client setup
 
 Use `node dist/index.js` as a stdio MCP server and pass `NOTION_TOKEN` and `NOTION_DATABASE_ID` through your client's environment or the local `.env` file. Never commit `.env` or put credentials in memory content.
 
+The SQLite cache defaults to `.cache/memory.sqlite` under this installation, regardless of a client's working directory. Set `MEMORY_CACHE_PATH` to an absolute path in `.env` or each client's environment when the installation directory is read-only or several installations should share one cache. Existing caches created under other working directories are disposable; run `node dist/cli.js cache rebuild` after switching paths.
+
 Setup guides: [Claude Code](./docs/integrations/claude-code.md), [Codex CLI](./docs/integrations/codex-cli.md), [OpenCode](./docs/integrations/opencode.md), [Copilot CLI](./docs/integrations/copilot-cli.md), [Cline](./docs/integrations/cline.md), [Gemini CLI](./docs/integrations/gemini-cli.md), and [other clients](./docs/integrations/README.md). Example configurations are in [examples/mcp-configs](./examples/mcp-configs).
 
 ## Architecture
 
-`src/index.ts` exposes the MCP tools. `src/store.ts` reads and writes Notion. `src/cache.ts` maintains the disposable SQLite FTS5 and embedding cache at `.cache/memory.sqlite`; `src/semantic-search.ts` runs the local model and ranks cached records. `src/obsidian.ts` writes the optional Markdown mirror and handles Git. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the data flows and cache policy.
+`src/index.ts` exposes the MCP tools. `src/store.ts` reads and writes Notion. `src/cache.ts` maintains the disposable SQLite FTS5 and embedding cache at the installation's `.cache/memory.sqlite` by default; `src/semantic-search.ts` runs the local model and ranks cached records. `src/obsidian.ts` writes the optional Markdown mirror and handles Git. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the data flows and cache policy.
 
 ## Validation
 
@@ -84,6 +95,8 @@ npm test
 ```
 
 The test script builds TypeScript and runs the repository's automated tests. Local model inference and MCP retrieval were also checked manually with an Indonesian-to-English paraphrase. The automated tests do not prove live Notion sync, production latency, or quality on a large memory collection; those require separate integration checks and benchmarks. CI also runs a production-dependency audit.
+
+Run the [reproducible retrieval benchmark](./docs/research/retrieval-baseline-2026-09-14.md) with `npm run benchmark:retrieval -- --sizes 100,1000,10000 --modes keyword,semantic,hybrid --repeats 3`. The [vector comparison](./docs/research/vector-comparison-2026-09-14.md), [long-memory evaluation](./docs/research/long-memory-eval-2026-09-14.md), and [matched-excerpt check](./docs/research/matched-excerpts-2026-09-15.md) document later search changes. These benchmarks use labeled synthetic bilingual fixtures and temporary SQLite databases, without calling Notion. Semantic and hybrid runs require the local MiniLM model files to have been cached beforehand; downloads are disabled. The reported figures are measurements for these fixtures and machine, not a production performance claim.
 
 [v1.5.0 release notes](./RELEASE-NOTES-v1.5.0.md) summarize the current release. The [v1.4.0 development notes](./RELEASE-NOTES-v1.4.0.md) are historical and contain unverified performance claims.
 

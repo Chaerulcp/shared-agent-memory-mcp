@@ -34,14 +34,19 @@ function gitCheck(): DoctorCheck {
   } catch (err) { return check("Git working tree", false, err instanceof Error ? err.message : String(err)); }
 }
 
-function watcherCheck(): DoctorCheck {
+export function watcherCheck(): DoctorCheck {
   const lock = join(vaultPath(), ".shared-agent-memory-watch.lock");
-  if (!existsSync(lock)) return check("Watcher", false, "lock missing");
-  const pid = readFileSync(lock, "utf8").trim();
+  if (!existsSync(lock)) return check("Watcher", true, "not running (optional)");
+  const rawPid = readFileSync(lock, "utf8").trim();
+  const pid = Number(rawPid);
+  if (!Number.isSafeInteger(pid) || pid <= 0) return check("Watcher", false, `invalid PID ${rawPid}`);
   try {
-    execFileSync("powershell.exe", ["-NoProfile", "-Command", `(Get-Process -Id ${Number(pid)} -ErrorAction Stop).Id`], { encoding: "utf8" });
+    process.kill(pid, 0);
     return check("Watcher", true, `active PID ${pid}`);
-  } catch { return check("Watcher", false, `stale PID ${pid}`); }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EPERM") return check("Watcher", true, `active PID ${pid}`);
+    return check("Watcher", false, `stale PID ${pid}`);
+  }
 }
 
 export async function runDoctorSync(): Promise<DoctorSummary> {
@@ -68,7 +73,7 @@ export async function runDoctorSync(): Promise<DoctorSummary> {
     checks.push(watcherCheck());
   }
   const cache = createMemoryCache();
-  try { checks.push(check("Cache", cache.isFresh(), `${cache.count()} records; ${cache.isFresh() ? "fresh" : "stale"}`)); }
+  try { checks.push(check("Cache", cache.isFresh(), `${cache.count()} records; ${cache.isFresh() ? "fresh" : "stale"}; ${cachePath()}`)); }
   finally { cache.close(); }
   return summarizeDoctorChecks(checks);
 }

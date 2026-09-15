@@ -17,7 +17,8 @@
     "doctor": "node dist/cli.js doctor",
     "sync": "node dist/cli.js sync",
     "watch": "node dist/cli.js watch --interval 300",
-    "test": "npm run build && node --test test/*.test.mjs"
+    "test": "npm run build && node --test test/*.test.mjs",
+    "benchmark:retrieval": "node bench/retrieval-benchmark.mjs"
   },
   "engines": {
     "node": ">=22"

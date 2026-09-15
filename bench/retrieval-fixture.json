@@ -1,0 +1,35 @@
+{
+  "description": "Synthetic coding-memory examples with manually labeled Indonesian-English retrieval queries. Filler records are generated deterministically.",
+  "memories": [
+    { "id": "auth-refresh", "title": "Refresh expired access credentials", "content": "When a login session expires, exchange the refresh token for a new access token and retry the protected request once." },
+    { "id": "payment-rollback", "title": "Batalkan transaksi pembayaran gagal", "content": "Jika payment gateway menolak pembayaran, lakukan rollback transaksi database agar pesanan tidak tersimpan sebagian." },
+    { "id": "branch-naming", "title": "Git branch naming convention", "content": "Name feature branches feature/short-topic and bug fixes fix/short-topic so the team can identify intent in review." },
+    { "id": "secrets", "title": "Penyimpanan rahasia produksi", "content": "Simpan API key produksi di secret manager; jangan memasukkannya ke repository, berkas .env contoh, atau log aplikasi." },
+    { "id": "hydration", "title": "Resolve dashboard hydration mismatch", "content": "Render the same initial data on the server and client; delay browser-only timestamps until after hydration." },
+    { "id": "notion-cache", "title": "Sinkronisasi cache memori Notion", "content": "Setelah perubahan Notion, bangun ulang indeks SQLite FTS5 sebelum menggunakan pencarian semantic atau hybrid." },
+    { "id": "flaky-clock", "title": "Make time-dependent tests deterministic", "content": "Inject a clock into code under test instead of sleeping, then assert behavior at a controlled timestamp." },
+    { "id": "rate-limit", "title": "Tangani batas laju API", "content": "Saat server mengembalikan HTTP 429, hormati Retry-After dan jadwalkan ulang permintaan dengan backoff terbatas." },
+    { "id": "obsidian-conflict", "title": "Preserve manual Obsidian edits", "content": "When the Markdown mirror changes locally, keep the edited note and write a separate conflict copy of the authoritative Notion version." },
+    { "id": "schema-migration", "title": "Migrasi skema tanpa downtime", "content": "Tambahkan kolom baru lebih dulu, jalankan backfill, lalu aktifkan pembacaan baru sebelum menghapus kolom lama." },
+    { "id": "search-chunks", "title": "Retrieve relevant passages from long notes", "content": "Split large memory documents into overlapping chunks and return a short matching excerpt with the source ID." },
+    { "id": "git-rollback", "title": "Pulihkan deploy melalui Git", "content": "Jika rilis gagal, kembalikan commit deploy sebelumnya dan jalankan pemeriksaan kesehatan sebelum membuka trafik lagi." }
+  ],
+  "queries": [
+    { "id": "q-auth", "text": "bagaimana memperbarui sesi login yang kedaluwarsa", "relevantIds": ["auth-refresh"] },
+    { "id": "q-payment", "text": "undo database transaction after a failed payment", "relevantIds": ["payment-rollback"] },
+    { "id": "q-branch", "text": "aturan penamaan cabang git untuk fitur baru", "relevantIds": ["branch-naming"] },
+    { "id": "q-secrets", "text": "where should production API credentials be stored", "relevantIds": ["secrets"] },
+    { "id": "q-hydration", "text": "halaman dashboard berbeda saat hydration React", "relevantIds": ["hydration"] },
+    { "id": "q-cache", "text": "how to refresh the Notion memory search index", "relevantIds": ["notion-cache"] },
+    { "id": "q-clock", "text": "tes kadang gagal karena bergantung pada waktu", "relevantIds": ["flaky-clock"] },
+    { "id": "q-rate", "text": "respect API rate limit and retry after 429", "relevantIds": ["rate-limit"] },
+    { "id": "q-conflict", "text": "cara menyimpan edit manual Obsidian saat sinkronisasi", "relevantIds": ["obsidian-conflict"] },
+    { "id": "q-schema", "text": "zero downtime database column migration", "relevantIds": ["schema-migration"] },
+    { "id": "q-chunks", "text": "ambil kutipan relevan dari catatan memori panjang", "relevantIds": ["search-chunks"] },
+    { "id": "q-rollback", "text": "revert a broken deployment with Git", "relevantIds": ["git-rollback"] },
+    { "id": "q-auth-control", "text": "refresh token expired", "relevantIds": ["auth-refresh"] },
+    { "id": "q-payment-control", "text": "rollback transaksi database", "relevantIds": ["payment-rollback"] },
+    { "id": "q-branch-control", "text": "feature branches", "relevantIds": ["branch-naming"] },
+    { "id": "q-secrets-control", "text": "secret manager", "relevantIds": ["secrets"] }
+  ]
+}

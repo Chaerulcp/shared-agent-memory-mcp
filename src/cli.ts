@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { loadConfig, loadDotEnv, normalizeId } from "./config.js";
 import { acquireWatcherLock, initSyncBaseline, listConflictFiles, resolveConflict, type GitSyncResult } from "./obsidian.js";
@@ -8,6 +9,8 @@ import { runSetup } from "./setup.js";
 import { cacheInput, cachePath, createMemoryCache } from "./cache.js";
 import { resolveProject } from "./project-context.js";
 import { formatDoctorSummary, runDoctorSync } from "./doctor.js";
+import { runWatchLoop } from "./watch.js";
+import type { SemanticSearchResult } from "./semantic-search.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -48,9 +51,10 @@ Perintah:
        Mode semantic/hybrid memerlukan cache segar; unduhan model lokal terjadi pada pencarian pertama.
   recent [--limit N] [--agent X] [--json]
        Memori terbaru
-  add --title "..." --content "..." [--content-file f] [--agent X]
+  add --title "..." --content "..." [--content-file f] [--agent X] [--idempotency-key X]
       [--category X] [--tags a,b] [--importance high|medium|low] [--project X]
        Simpan memori baru (project otomatis dari Git bila tidak diset)
+       Pakai key yang sama bila mengulang satu operasi add setelah respons terputus
   get <id> [--json]
        Lihat satu memori
   update <id> [--title] [--content] [--agent] [--category] [--tags]
@@ -127,7 +131,7 @@ function short(text: string, max: number): string {
   return one.length > max ? one.slice(0, max - 1) + "…" : one;
 }
 
-function printMemory(m: Memory, opts: { full?: boolean } = {}) {
+function printMemory(m: SemanticSearchResult, opts: { full?: boolean } = {}) {
   console.log(`• ${m.title}`);
   console.log(`  id       : ${m.id}`);
   console.log(
@@ -138,7 +142,10 @@ function printMemory(m: Memory, opts: { full?: boolean } = {}) {
   if (m.freshness) console.log(`  freshness: ${m.freshness}`);
   console.log(`  updated  : ${m.updatedAt}`);
   if (opts.full) console.log(`  isi      :\n${m.content}`);
-  else console.log(`  isi      : ${short(m.content, 160)}`);
+  else if (m.match) {
+    console.log(`  cocok    : karakter ${m.match.start}–${m.match.end}`);
+    console.log(`  isi      : ${m.match.excerpt.replace(/\s+/g, " ").trim()}`);
+  } else console.log(`  isi      : ${short(m.content, 160)}`);
   console.log(`  url      : ${m.url}`);
   console.log();
 }
@@ -219,7 +226,7 @@ async function main() {
   };
   const json = bool("json");
 
-  const output = (results: Memory[]) => {
+  const output = (results: SemanticSearchResult[]) => {
     if (json) {
       console.log(JSON.stringify(results, null, 2));
       return;
@@ -348,7 +355,7 @@ async function main() {
       if (!title || !content) {
         throw new Error("--title dan --content (atau --content-file) wajib diisi.");
       }
-      const { memory, conflict, mirrorError, cacheError, git } = await addMemory({
+      const { memory, replayed, conflict, mirrorError, cacheError, git } = await addMemory({
         title,
         content,
         agent: enumCheck(str("agent"), AGENTS, "agent") ?? "shared",
@@ -356,8 +363,9 @@ async function main() {
         tags: parseTags(str("tags")),
         importance: enumCheck(str("importance"), IMPORTANCE, "importance") ?? "medium",
         project: resolveProject(str("project")),
+        idempotencyKey: str("idempotency-key"),
       });
-      console.log("Memori tersimpan.\n");
+      console.log(replayed ? "Memori yang sudah tersimpan ditemukan kembali.\n" : "Memori tersimpan.\n");
       printMemory(memory, { full: true });
       if (conflict) console.error(`Konflik Obsidian: ${conflict}`);
       reportMirrorError(mirrorError);
@@ -465,23 +473,32 @@ async function main() {
 
     case "watch": {
       const releaseLock = acquireWatcherLock();
-      process.once("SIGINT", releaseLock);
-      process.once("SIGTERM", releaseLock);
-      const interval = Math.max(30, parseInt(str("interval") ?? "300", 10) || 300);
-      console.log(`Memantau Notion setiap ${interval} detik. Tekan Ctrl+C untuk berhenti.`);
-      const runSync = async () => {
-        try {
-          const result = await syncNotionToObsidian();
-          console.log(`[${new Date().toISOString()}] Sinkronisasi selesai: ${result.count} file, ${result.conflicts.length} konflik.`);
-          for (const file of result.conflicts) console.error(`[${new Date().toISOString()}] Konflik dipertahankan: ${file}`);
-          reportGitSync(result.git);
-        } catch (err) {
-          console.error(`[${new Date().toISOString()}] Sinkronisasi gagal: ${errMsg(err)}`);
-        }
-      };
-      await runSync();
-      setInterval(() => void runSync(), interval * 1000);
-      await new Promise<void>(() => undefined);
+      const controller = new AbortController();
+      const stop = () => controller.abort();
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
+      try {
+        const interval = Math.max(30, parseInt(str("interval") ?? "300", 10) || 300);
+        console.log(`Memantau Notion setiap ${interval} detik. Tekan Ctrl+C untuk berhenti.`);
+        const runSync = async () => {
+          try {
+            const result = await syncNotionToObsidian();
+            console.log(`[${new Date().toISOString()}] Sinkronisasi selesai: ${result.count} file, ${result.conflicts.length} konflik.`);
+            for (const file of result.conflicts) console.error(`[${new Date().toISOString()}] Konflik dipertahankan: ${file}`);
+            reportGitSync(result.git);
+          } catch (err) {
+            console.error(`[${new Date().toISOString()}] Sinkronisasi gagal: ${errMsg(err)}`);
+          }
+        };
+        await runWatchLoop(runSync, async (signal) => {
+          try { await delay(interval * 1000, undefined, { signal }); }
+          catch (err) { if (!signal.aborted) throw err; }
+        }, controller.signal);
+      } finally {
+        process.off("SIGINT", stop);
+        process.off("SIGTERM", stop);
+        releaseLock();
+      }
       break;
     }
 

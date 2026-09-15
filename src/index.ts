@@ -1,7 +1,9 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { compactMemory } from "./memory-response.js";
 import {
   AGENTS,
   CATEGORIES,
@@ -15,9 +17,12 @@ import {
   DuplicateMemoryError,
 } from "./store.js";
 
+const packageVersion = z.object({ version: z.string() })
+  .parse(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"))).version;
+
 const server = new McpServer({
   name: "notion-agent-memory",
-  version: "1.0.0",
+  version: packageVersion,
 });
 
 function ok(data: unknown) {
@@ -45,12 +50,13 @@ server.registerTool(
   {
     description:
       "Search the shared long-term memory stored in Notion (used by Cline, OpenCode, Claude Code, GitHub Copilot, Hermes). " +
-      "Returns matching memories with id, title, content, agent, category, tags. " +
+      "Returns matching memories with id, title, content, agent, category, tags. Semantic and hybrid vector matches also include match.excerpt with Unicode start/end offsets. Set response to compact to omit full content and return an excerpt; use memory_get for full content. " +
       "USE THIS at the start of a task with relevant keywords, and before making decisions, " +
       "to reuse saved preferences, conventions, and past decisions.",
     inputSchema: {
       query: z.string().describe("Search text; semantic and hybrid modes also match related meaning"),
       mode: z.enum(["keyword", "semantic", "hybrid"]).default("keyword").describe("Semantic and hybrid modes require a fresh local cache"),
+      response: z.enum(["full", "compact"]).default("full").describe("Compact omits full content; full preserves the existing response"),
       agent: agentEnum.optional().describe("Only memories saved by this agent"),
       category: categoryEnum.optional(),
       tag: z.string().optional().describe("Exact tag name to filter by"),
@@ -61,8 +67,9 @@ server.registerTool(
   },
   async (args) => {
     try {
-      const results = await searchMemories({ ...args, currentProject: args.currentProject });
-      return ok({ count: results.length, results });
+      const { response, ...searchOptions } = args;
+      const results = await searchMemories(searchOptions);
+      return ok({ count: results.length, results: response === "compact" ? results.map((memory) => compactMemory(memory, args.query)) : results });
     } catch (err) {
       return fail(err);
     }
@@ -73,17 +80,20 @@ server.registerTool(
   "memory_recent",
   {
     description:
-      "List the most recently updated memories from the shared Notion memory. " +
+      "List the most recently updated memories from the shared Notion memory. Set response to compact to return excerpts without full content. " +
       "Use to get context about what was learned/saved lately.",
     inputSchema: {
+      response: z.enum(["full", "compact"]).default("full").describe("Compact omits full content; full preserves the existing response"),
       agent: agentEnum.optional(),
+      project: z.string().trim().max(120).optional().describe("Only memories for this project/repository"),
+      currentProject: z.boolean().default(false).describe("Use the current Git repository as project scope when project is omitted"),
       limit: z.number().int().min(1).max(25).default(5),
     },
   },
   async (args) => {
     try {
-      const results = await searchMemories({ agent: args.agent, limit: args.limit });
-      return ok({ count: results.length, results });
+      const results = await searchMemories({ agent: args.agent, project: args.project, currentProject: args.currentProject, limit: args.limit });
+      return ok({ count: results.length, results: args.response === "compact" ? results.map((memory) => compactMemory(memory)) : results });
     } catch (err) {
       return fail(err);
     }
@@ -125,6 +135,7 @@ server.registerTool(
       importance: importanceEnum.default("medium"),
       project: z.string().trim().max(120).optional().describe("Project/repository scope; optional for legacy databases"),
       allowDuplicate: z.boolean().default(false).describe("Explicitly allow a similar memory to be saved"),
+      idempotencyKey: z.string().trim().min(8).max(128).regex(/^[A-Za-z0-9._:-]+$/).optional().describe("Reuse the same key when retrying one memory_add operation"),
       source: z.string().trim().max(40).optional().describe("Origin: agent, user, notion, import, or system"),
       confidence: z.enum(["high", "medium", "low"]).optional(),
       verifiedAt: z.string().datetime().optional().describe("ISO timestamp when this memory was last verified"),
@@ -134,7 +145,7 @@ server.registerTool(
   },
   async (args) => {
     try {
-      const { memory, conflict, mirrorError, cacheError, git } = await addMemory({
+      const { memory, replayed, conflict, mirrorError, cacheError, git } = await addMemory({
         title: args.title,
         content: args.content,
         agent: args.agent,
@@ -143,13 +154,14 @@ server.registerTool(
         importance: args.importance,
         project: args.project,
         allowDuplicate: args.allowDuplicate,
+        idempotencyKey: args.idempotencyKey,
         source: args.source,
         confidence: args.confidence,
         verifiedAt: args.verifiedAt,
         freshnessDays: args.freshnessDays,
         supersedes: args.supersedes,
       });
-      return ok({ saved: true, memory, obsidian: { conflict, error: mirrorError }, cache: { error: cacheError }, git });
+      return ok({ saved: true, replayed, memory, obsidian: { conflict, error: mirrorError }, cache: { error: cacheError }, git });
     } catch (err) {
       if (err instanceof DuplicateMemoryError) {
         return {

@@ -84,13 +84,13 @@ Keyword mode is the default. `memory_search` uses the local FTS5 cache only when
 
 Project filtering is supported by the cache. Any keyword request outside this policy queries Notion directly. If the cache is missing, stale, corrupt, or incomplete, keyword search falls back to Notion.
 
-Semantic and hybrid modes are explicit opt-ins. They require a fresh cache with complete serialized records; stale or incomplete snapshots produce an error. The local multilingual model embeds the query and each candidate's title plus the first 1,200 content characters. Record vectors are persisted in the same SQLite file and refreshed when indexed text changes. Semantic mode ranks by cosine similarity; hybrid mode fuses semantic and FTS5 ranks. Filters are applied to the cached records before embedding. The cache never becomes the source of truth.
+Semantic and hybrid modes are explicit opt-ins. They require a fresh cache with serialized records; stale or incomplete matching records produce an error. The local multilingual model embeds the query and overlapping chunks containing each candidate's title plus up to 1,200 content characters. Chunks advance by 1,000 Unicode code points, so facts near a boundary appear in adjacent chunks. Record vectors are persisted in the same SQLite file under `(memory_id, chunk_index)` and refreshed when indexed text changes. On cache replacement, changed titles or content invalidate that memory's vectors; an existing single-vector cache is re-embedded once when upgrading. Warm queries use `sqlite-vec`'s cosine-distance SQL function over the stored chunks, apply project/status/agent/category/tag filters in SQLite, rank each memory by its best chunk, and load only returned records. Semantic matches include an excerpt from that best chunk and Unicode code-point offsets into the full content. Hybrid mode fuses those memory ranks with FTS5 ranks; keyword-only hybrid hits have no excerpt. This is an exact SQL scan of the existing embedding table, not a separate `vec0` index. The cache never becomes the source of truth.
 
 ## Cache consistency
 
 Successful `memory_add`, `memory_update`, and `memory_delete` operations clear the local cache. If invalidation fails, the write result reports a cache error and the running process bypasses that cache for keyword searches. The next normal `sync` or `cache rebuild` recreates the index.
 
-The cache uses a metadata timestamp named `last_sync`. Cache files live under `.cache/` and are excluded from Git. Removing the cache is safe because it contains no authoritative data.
+The cache uses a metadata timestamp named `last_sync`. By default, cache files live under `.cache/` at the installation root, independent of the client's working directory, and are excluded from Git. `MEMORY_CACHE_PATH` can select an absolute SQLite file path instead. Removing the search cache is safe because it contains no authoritative memory data. Keyed writes also create a separate SQLite operation journal next to the cache file; do not remove that journal while a Notion write outcome is uncertain.
 
 ## Data model
 
