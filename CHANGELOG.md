@@ -6,7 +6,26 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [Unreleased]
 
-No unreleased changes.
+## [1.6.1] - 2026-09-23
+
+### Changed
+
+- Package is prepared for public npm distribution as `@chaerulcp/shared-agent-memory-mcp` with a curated tarball, npm metadata, and `agent-memory` and `notion-memory` executables.
+
+## [1.6.0] - 2026-09-15
+
+### Added
+
+- Support for Notion data sources, including automatic selection for a single source and explicit `NOTION_DATA_SOURCE_ID` selection for multi-source databases.
+- Retry-safe `memory_add` writes through an idempotency key and local operation journal.
+- Compact MCP search and recent responses, matched semantic excerpts, and Unicode-aware chunked embeddings for long memories.
+- Reproducible retrieval benchmarks and evaluation fixtures.
+
+### Changed
+
+- Semantic retrieval now uses `sqlite-vec` ranking and invalidates cached vectors when memory content changes.
+- The local cache has a stable installation-relative default path and supports an absolute `MEMORY_CACHE_PATH` override.
+- The sync watcher waits for each sync to finish before scheduling another cycle and releases its lock on shutdown.
 
 ## [1.5.0] - 2026-09-13
 
@@ -173,8 +192,6 @@ Patch release that fixes false Obsidian conflicts for newly created memories.
 - Notion remains the source of truth.
 - Existing `.shared-agent-memory-sync.json` manifests remain compatible.
 
-[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.2...HEAD
-[1.1.2]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.2
 
 ## [1.1.1] - 2026-09-01
 
@@ -209,8 +226,6 @@ Patch release that adds safe Obsidian conflict handling and production baseline 
 - Production vault baseline created for 43 memory files after a verified backup.
 - Obsidian vault working tree remained clean after the baseline commit.
 
-[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.1.1...HEAD
-[1.1.1]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.1
 
 ## [1.1.0] - 2026-09-01
 
@@ -254,5 +269,18 @@ Initial stable baseline release. Tag `v1.0.0` points to commit `cf85836`.
 - Validation for memory titles and content.
 - MIT license and public contribution/security documentation.
 
-[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Chaerulcp/shared-agent-memory-mcp/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.6.1
+[1.6.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.6.0
+[1.5.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.5.0
+[1.4.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.4.0
+[1.3.1]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.3.1
+[1.3.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.3.0
+[1.2.3]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.2.3
+[1.2.2]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.2.2
+[1.2.1]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.2.1
+[1.2.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.2.0
+[1.1.2]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.2
+[1.1.1]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.1
+[1.1.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Chaerulcp/shared-agent-memory-mcp/releases/tag/v1.0.0

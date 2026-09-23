@@ -1,11 +1,35 @@
 {
-  "name": "shared-agent-memory-mcp",
-  "version": "1.6.0",
+  "name": "@chaerulcp/shared-agent-memory-mcp",
+  "version": "1.6.1",
   "description": "Memori bersama (shared memory) untuk AI coding agents — Cline, OpenCode, Claude Code, GitHub Copilot, Hermes — dengan penyimpanan di Notion",
   "type": "module",
   "main": "dist/index.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chaerulcp/shared-agent-memory-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Chaerulcp/shared-agent-memory-mcp/issues"
+  },
+  "homepage": "https://github.com/Chaerulcp/shared-agent-memory-mcp#readme",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-memory",
+    "notion",
+    "obsidian",
+    "coding-agents"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ],
   "bin": {
-    "agent-memory": "dist/cli.js"
+    "agent-memory": "dist/cli.js",
+    "notion-memory": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -18,7 +42,11 @@
     "sync": "node dist/cli.js sync",
     "watch": "node dist/cli.js watch --interval 300",
     "test": "npm run build && node --test test/*.test.mjs",
-    "benchmark:retrieval": "node bench/retrieval-benchmark.mjs"
+    "benchmark:retrieval": "node bench/retrieval-benchmark.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=22"

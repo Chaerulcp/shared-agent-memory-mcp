@@ -39,47 +39,70 @@ If a Markdown file was edited after its last sync, the next sync leaves it intac
 
 ## Quick start
 
+### Install from npm
+
+```powershell
+npm install -g @chaerulcp/shared-agent-memory-mcp
+$env:NOTION_TOKEN = "secret_your_notion_token"
+$env:NOTION_DATABASE_ID = "your_notion_database_id"
+# Set NOTION_DATA_SOURCE_ID too when the database has multiple data sources
+agent-memory doctor
+```
+
+Create a Notion integration at [My Integrations](https://www.notion.so/my-integrations), then share the target database with it. To create a new memory database from an existing Notion parent page, set `NOTION_TOKEN` and run `agent-memory init <parent-page-url>`. Use your MCP client's secure environment configuration for persistent credentials; never put tokens in source control.
+
+### Development from source
+
 ```powershell
 git clone https://github.com/Chaerulcp/shared-agent-memory-mcp.git
 cd shared-agent-memory-mcp
 npm ci
 npm run build
 Copy-Item .env.example .env
-# Set NOTION_TOKEN and NOTION_DATABASE_ID in .env
-# Set NOTION_DATA_SOURCE_ID too when the database has multiple data sources
 node dist/cli.js doctor
 ```
-
-Create a Notion integration at [My Integrations](https://www.notion.so/my-integrations), then share the target database with it. To create a new memory database from an existing Notion parent page, set `NOTION_TOKEN` and run `npm run init-db -- <parent-page-url>`. See [Getting Started](./GETTING_STARTED.md) for setup details.
 
 The `doctor` command checks credentials and Notion connectivity. `doctor --sync` also checks the optional vault, watcher, and cache and shows the effective cache path; a missing watcher is healthy because polling is optional, while a stale lock is reported as a failure. An unconfigured vault or stale cache can make that extended check report unhealthy.
 
 ## CLI examples
 
 ```powershell
-node dist/cli.js add --title "Use TypeScript for API" --content "The API uses TypeScript." --agent shared --category decision --project backend-service
-node dist/cli.js add --title "Retry-safe memory" --content "A durable fact" --idempotency-key task-2026-09-14-001
-node dist/cli.js search "TypeScript API" --project backend-service
-node dist/cli.js recent --limit 5
-node dist/cli.js get YOUR_NOTION_PAGE_ID
-node dist/cli.js update YOUR_NOTION_PAGE_ID --title "Use TypeScript for backend API"
-node dist/cli.js delete YOUR_NOTION_PAGE_ID
-node dist/cli.js cache rebuild
-node dist/cli.js cache search "TypeScript"
-node dist/cli.js search "cara memperbaiki mobil" --mode semantic --project backend-service
-node dist/cli.js search "TypeScript API" --mode hybrid --project backend-service
-node dist/cli.js sync --dry-run
+agent-memory add --title "Use TypeScript for API" --content "The API uses TypeScript." --agent shared --category decision --project backend-service
+agent-memory add --title "Retry-safe memory" --content "A durable fact" --idempotency-key task-2026-09-14-001
+agent-memory search "TypeScript API" --project backend-service
+agent-memory recent --limit 5
+agent-memory get YOUR_NOTION_PAGE_ID
+agent-memory update YOUR_NOTION_PAGE_ID --title "Use TypeScript for backend API"
+agent-memory delete YOUR_NOTION_PAGE_ID
+agent-memory cache rebuild
+agent-memory cache search "TypeScript"
+agent-memory search "cara memperbaiki mobil" --mode semantic --project backend-service
+agent-memory search "TypeScript API" --mode hybrid --project backend-service
+agent-memory sync --dry-run
 ```
 
 `delete` archives by default; `--hard` moves the Notion page to trash. `cache rebuild` and `sync` read all Notion records. `sync --dry-run` only reads Notion and does not write the cache, vault, or Git.
 
 For a write that may be retried, give `memory_add` an `idempotencyKey` or CLI `add` an `--idempotency-key` (8–128 letters, digits, `.`, `_`, `:`, or `-`). Reuse that key only for the same logical write. The first keyed write adds a rich-text `Operation Key` property to an older Notion database if the integration can edit its schema; databases created by `init` include it. A retry finds the existing page and returns `replayed: true`. When a write may have reached Notion but the page cannot yet be found, the local operation journal blocks another create with that key. Keep the key and check Notion before deciding how to resolve the uncertain write. The journal lives beside the configured cache file and survives `cache clear`; clients must share `MEMORY_CACHE_PATH` to coordinate pending writes. Notion does not enforce uniqueness for this property, so simultaneous keyed writes from separate installations with separate journals are not atomic.
 
-For all commands and accepted values, run `node dist/cli.js --help`.
+For all commands and accepted values, run `agent-memory --help` after global installation, or `node dist/cli.js --help` from a source checkout.
 
 ## MCP client setup
 
-Use `node dist/index.js` as a stdio MCP server and pass `NOTION_TOKEN` and `NOTION_DATABASE_ID` through your client's environment or the local `.env` file. The server automatically discovers the target when the database has one data source. For a multi-source database, also set `NOTION_DATA_SOURCE_ID`; the server refuses an ambiguous target instead of writing to the wrong source. This release uses Notion API `2025-09-03` and `@notionhq/client` v5. Never commit `.env` or put credentials in memory content.
+After global installation, use `notion-memory` as the stdio MCP server and pass `NOTION_TOKEN` and `NOTION_DATABASE_ID` through your client's environment. For example:
+
+```json
+{
+  "command": "notion-memory",
+  "args": [],
+  "env": {
+    "NOTION_TOKEN": "${NOTION_TOKEN}",
+    "NOTION_DATABASE_ID": "${NOTION_DATABASE_ID}"
+  }
+}
+```
+
+From a source checkout, use `node dist/index.js` instead. The server automatically discovers the target when the database has one data source. For a multi-source database, also set `NOTION_DATA_SOURCE_ID`; the server refuses an ambiguous target instead of writing to the wrong source. This release uses Notion API `2025-09-03` and `@notionhq/client` v5. Never commit `.env` or put credentials in memory content.
 
 The SQLite cache defaults to `.cache/memory.sqlite` under this installation, regardless of a client's working directory. Set `MEMORY_CACHE_PATH` to an absolute path in `.env` or each client's environment when the installation directory is read-only or several installations should share one cache. Existing caches created under other working directories are disposable; run `node dist/cli.js cache rebuild` after switching paths.
 
