@@ -122,7 +122,7 @@ The test script builds TypeScript and runs the repository's automated tests. Loc
 
 Run the [reproducible retrieval benchmark](./docs/research/retrieval-baseline-2026-09-14.md) with `npm run benchmark:retrieval -- --sizes 100,1000,10000 --modes keyword,semantic,hybrid --repeats 3`. The [vector comparison](./docs/research/vector-comparison-2026-09-14.md), [long-memory evaluation](./docs/research/long-memory-eval-2026-09-14.md), and [matched-excerpt check](./docs/research/matched-excerpts-2026-09-15.md) document later search changes. These benchmarks use labeled synthetic bilingual fixtures and temporary SQLite databases, without calling Notion. Semantic and hybrid runs require the local MiniLM model files to have been cached beforehand; downloads are disabled. The reported figures are measurements for these fixtures and machine, not a production performance claim.
 
-[v1.5.0 release notes](./RELEASE-NOTES-v1.5.0.md) summarize the current release. The [v1.4.0 development notes](./RELEASE-NOTES-v1.4.0.md) are historical and contain unverified performance claims.
+The [changelog](./CHANGELOG.md) summarizes the current release history, including the historical v1.4.0 experimental modules and their unverified performance claims.
 
 ## Contributing and support
 

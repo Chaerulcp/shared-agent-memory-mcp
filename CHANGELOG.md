@@ -6,6 +6,14 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-09-24
+
+### Changed
+
+- Cleaned the documentation set to remove stale release-note files and duplicated historical summaries.
+- Normalized the onboarding and integration guides to match the actual MCP tools, environment variables, and repository status.
+- Removed fake SDK/client examples and aligned the client capability notes with the real server contract.
+
 ## [1.6.1] - 2026-09-23
 
 ### Changed
@@ -46,7 +54,7 @@ The project follows Semantic Versioning. The `v1.1.0` release includes the post-
 
 ## [1.4.0] - 2026-09-02
 
-Introduced experimental tiered-memory, index, ranking, hybrid, and vector modules. See [historical development notes](./RELEASE-NOTES-v1.4.0.md); their performance figures are not verified end-to-end benchmarks.
+Introduced experimental tiered-memory, index, ranking, hybrid, and vector modules. Their performance figures are not verified end-to-end benchmarks.
 
 ## [1.3.1] - 2026-09-02
 

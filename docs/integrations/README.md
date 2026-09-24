@@ -42,9 +42,8 @@ NOTION_DATABASE_ID=your-database-id-here
 # Optional - Obsidian mirror backup
 OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
 
-# Performance tuning (optional)
-CACHE_TTL_MS=300000
-CONCURRENT_THREADS=4
+# Optional cache location shared by CLI and MCP clients
+MEMORY_CACHE_PATH=C:/absolute/path/to/memory.sqlite
 ```
 
 ⚠️ **Never commit `.env` to Git!** Use environment variable substitution or secure vault solutions.
@@ -145,34 +144,25 @@ CONCURRENT_THREADS=4
 - Collaborative memory sharing
 - Cross-project knowledge transfer
 - Automated context management
-- Real-time sync capabilities
+- Scheduled Notion-to-Obsidian sync through `sync` or `watch`
 
 ---
 
-### 4. Cline (Autonomous Coding Agent) ⏳
+### 4. Cline (Autonomous Coding Agent)
 
-**Status:** 🚧 In Progress  
-**Expected Release:** Q4 2026
+**Status:** Configuration template verified; end-to-end Cline session not independently tested.
 
-**Planned Features:**
-- Autonomous memory-aware agent workflows
-- Self-directed refactoring with context
-- Project-wide pattern learning
-- Multi-file change coordination
+See the [Cline setup guide](./cline.md).
 
 💬 **Want this integration sooner?** Let us know in [GitHub Discussions](https://github.com/Chaerulcp/shared-agent-memory-mcp/discussions)!
 
 ---
 
-### 5. Gemini CLI (Google AI) 🚀
+### 5. Gemini CLI (Google AI)
 
-**Status:** 🚧 Planned  
-**Target:** Q1 2027
+**Status:** Configuration template verified; end-to-end Gemini CLI session not independently tested.
 
-**Anticipated Capabilities:**
-- Google Cloud integration
-- TensorFlow model context awareness
-- Vertex AI workspace support
+See the [Gemini CLI setup guide](./gemini-cli.md).
 
 ---
 
@@ -224,11 +214,9 @@ node dist/cli.js cache rebuild
 
 ### Performance Characteristics
 
-| Client | Latency Overhead | Memory Access Speed | Sync Frequency |
-|--------|------------------|---------------------|----------------|
-| Claude Code | <10ms | Sub-millisecond | Real-time |
-| Copilot CLI | ~15ms | Fast (~5ms) | On-demand |
-| OpenCode | ~20ms | Optimized (~8ms) | Batched |
+| Client | MCP transport | Notion access | Obsidian sync |
+|--------|---------------|---------------|---------------|
+| All clients | stdio | Direct through the configured server | On demand or polling with `watch` |
 
 ### Security Considerations
 
@@ -251,32 +239,23 @@ For organizations managing multiple projects:
   "mcpServers": {
     "project-alpha": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "db-alpha-id"],
-      "env": { "NOTION_TOKEN": "...", ... }
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "db-alpha-id" }
     },
     "project-beta": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "db-beta-id"],
-      "env": { "NOTION_TOKEN": "...", ... }
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "db-beta-id" }
     }
   }
 }
 ```
 
-### Custom Timeout Settings
+### Client Timeout Settings
 
-For slow network connections:
+Startup timeout and retry settings belong to the MCP client configuration, not this server. Use the options supported by your client when Notion connections are slow.
 
-```javascript
-// Add to config JSON
-{
-  "timeout": {
-    "initial": 30000,
-    "retries": 3,
-    "backoff": 1.5
-  }
-}
-```
+The server itself exposes no `--timeout`, `--retries`, or performance-tuning CLI flags.
 
 ---
 
@@ -318,4 +297,4 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1*

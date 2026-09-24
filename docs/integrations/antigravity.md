@@ -79,9 +79,8 @@ NOTION_DATABASE_ID=your-database-id-here
 # Optional - Obsidian sync
 OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
 
-# Performance tuning
-CACHE_TTL_MS=300000
-CONCURRENT_THREADS=4
+# Optional shared cache location
+MEMORY_CACHE_PATH=C:/absolute/path/to/memory.sqlite
 ```
 
 ⚠️ **Security:** Never commit `.env` files to Git!
@@ -162,210 +161,52 @@ Expected output: `agent-memory ✅ Connected`
 
 ## 🎯 Usage Examples
 
-### Query Memory in Antigravity Conversations
+### Use Memory in Antigravity Conversations
 
-Once integrated, Antigravity automatically has access to memory tools:
+Ask Antigravity to call the MCP tools directly. The project exposes the standard memory tools, not a custom TypeScript client library. In practice, use natural-language instructions such as:
 
-```typescript
-// Natural language queries work seamlessly
-const context = await AntigravityClient.queryMemory({
-  query: "What were our authentication decisions last sprint?",
-  limit: 5,
-  filter: { projectId: 'backend-api' }
-});
+- Search with `memory_search` using a query like "authentication decisions" and `project: "backend-api"`.
+- Save a durable decision with `memory_add` including a short title, content, agent, category, and optional tags.
+- Retrieve the complete record with `memory_get` when a compact search result is not enough.
 
-// Results automatically injected into conversation
+A typical workflow is:
+
+```text
+Search for related decisions in this repo.
+If there is an existing pattern, reuse it.
+If not, save the decision with memory_add so other agents can find it later.
 ```
 
-### Access Through Arcade.dev Tools
+### Multi-Project Setup
 
-Leverage the 7,500+ tools integration:
-
-```typescript
-// Use Arcade.dev runtime for enhanced capabilities
-const arcadeTools = await ArcadeRuntime.availableTools();
-
-// Filter relevant tools for current task
-const relevantTools = arcadeTools.filter(tool =>
-  tool.category === 'database' || tool.category === 'auth'
-);
-
-// Execute through unified MCP protocol
-await AntigravityClient.executeTool({
-  name: 'database-query',
-  parameters: { 
-    sql: 'SELECT * FROM users WHERE active=true',
-    memoryContext: true // Automatic context injection
-  }
-});
-```
-
-### Add New Memories Programmatically
-
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
-
-await memoryPool.add({
-  title: 'Database Schema Decision',
-  content: 'Using PostgreSQL with JSONB fields for flexible attributes.',
-  metadata: {
-    projectId: 'user-service',
-    importance: 'high',
-    tags: ['database', 'architecture'],
-    createdBy: 'antigravity-agent'
-  }
-});
-```
-
----
-
-## 🔧 Advanced Configuration
-
-### Multi-Dataset Support
-
-For organizations managing multiple projects:
+For teams managing several projects, configure one MCP server per project or use a shared configuration with distinct environment values.
 
 ```json
 {
-  "servers": {
-    "project-alpha": {
+  "mcpServers": {
+    "project-alpha-memory": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "alpha-db-id"],
-      "cwd": "/path/to/project-alpha"
+      "args": ["/absolute/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}",
+        "NOTION_DATABASE_ID": "alpha-db-id"
+      }
     },
-    "project-beta": {
-      "command": "node", 
-      "args": ["dist/index.js", "--database", "beta-db-id"],
-      "cwd": "/path/to/project-beta"
+    "project-beta-memory": {
+      "command": "node",
+      "args": ["/absolute/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}",
+        "NOTION_DATABASE_ID": "beta-db-id"
+      }
     }
   }
 }
 ```
 
-### Workflow Patterns
+### Cache Configuration
 
-Implement multi-agent workflows with MCP:
-
-#### Pattern 1: Sequential Workflows
-
-```typescript
-// Agent 1 (GitHub) → Agent 2 (Review) → Agent 3 (Docker) → Agent 4 (Deploy)
-await WorkflowEngine.executeSequential([
-  { agent: 'github-agents', task: 'code-review' },
-  { agent: 'review-agent', task: 'quality-check' },
-  { agent: 'docker-agent', task: 'containerize' },
-  { agent: 'deploy-agent', task: 'release-to-prod' }
-], {
-  memoryEnabled: true,
-  contextSharing: true
-});
-```
-
-#### Pattern 2: Parallel Merge
-
-```typescript
-// Agent 1 (Design) + Agent 2 (Backend) + Agent 3 (DevOps) → Agent 4 (Integration)
-await WorkflowEngine.executeParallelMerge([
-  { agent: 'design-agent', task: 'ui-screens' },
-  { agent: 'backend-agent', task: 'api-specs' },
-  { agent: 'devops-agent', task: 'infrastructure' }
-], {
-  aggregator: 'integration-agent',
-  memoryConsolidation: true
-});
-```
-
-#### Pattern 3: Loop & Retry
-
-```typescript
-// Agent 1 (Monitor) → Detect → Agent 2 (Fix) → Agent 3 (Verify) → Success? Loop
-await WorkflowEngine.executeLoop(
-  {
-    monitor: { agent: 'monitor-agent', task: 'detect-issues' },
-    fix: { agent: 'fix-agent', task: 'apply-fixes' },
-    verify: { agent: 'verify-agent', task: 'validate-resolution' }
-  },
-  {
-    maxIterations: 5,
-    successThreshold: 0.95,
-    memoryLogging: true
-  }
-);
-```
-
-### Performance Tuning
-
-Optimize for high-performance workloads:
-
-```json
-{
-  "agent-memory": {
-    "command": "node",
-    "args": [
-      "dist/index.js",
-      "--threads", "8",
-      "--cache-size", "200",
-      "--ttl", "600000"
-    ],
-    "timeout": 60000,
-    "retries": 3,
-    "backoff": 2.0
-  }
-}
-```
-
-Flags explained:
-- `--threads`: Parallel worker count (default: 4)
-- `--cache-size`: LRU cache max items (default: 100)
-- `--ttl`: Cache TTL in milliseconds (default: 300000)
-- `--timeout`: Connection timeout (default: 30s)
-- `--retries`: Retry attempts on failure (default: 3)
-
----
-
-## 🔄 Antigravity-Specific Features
-
-### Context Inheritance
-
-Antigravity can inherit context from previous conversations:
-
-```typescript
-// Enable contextual inheritance
-await AntigravityClient.enableContextInheritance({
-  sourceSessions: 5,
-  relevanceThreshold: 0.75,
-  includeDecisions: true,
-  memoryRetentionPeriod: 30 // days
-});
-```
-
-### Memory Persistence
-
-Automatic memory persistence across Antigravity sessions:
-
-```typescript
-// Configure persistence behavior
-await AntigravityClient.configurePersistence({
-  autoSave: true,
-  saveInterval: 60000, // Every minute
-  backupOnSync: true,
-  compressArchived: true
-});
-```
-
-### Collaborative Memory
-
-Share memory between multiple Antigravity instances:
-
-```typescript
-// Enable collaborative mode
-await AntigravityClient.enableCollaboration({
-  syncEnabled: true,
-  conflictResolution: 'merge',
-  broadcastEvents: true,
-  realTimeUpdates: true
-});
-```
+Use `MEMORY_CACHE_PATH` when the Antigravity MCP process and the CLI must share one cache file. The value must be an absolute path. If you change it, rebuild the local cache with `node dist/cli.js cache rebuild`.
 
 ---
 
@@ -554,4 +395,4 @@ After successful setup:
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0 | Antigravity Compatibility: 2026+*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1 | Antigravity Compatibility: 2026+*

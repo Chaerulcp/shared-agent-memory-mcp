@@ -70,8 +70,7 @@ NOTION_DATABASE_ID=your-database-id-here
 
 # Optional settings
 OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
-CACHE_TTL_MS=300000
-CONCURRENT_THREADS=4
+MEMORY_CACHE_PATH=C:/absolute/path/to/memory.sqlite
 ```
 
 ⚠️ **Important:** Never commit `.env` files to Git! The `.gitignore` protects them automatically.
@@ -144,43 +143,23 @@ For organizations managing multiple projects:
   "mcpServers": {
     "project-alpha-memory": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "alpha-db-id"],
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "alpha-db-id" },
       "cwd": "/path/to/project-alpha"
     },
     "project-beta-memory": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "beta-db-id"],
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "beta-db-id" },
       "cwd": "/path/to/project-beta"
     }
   }
 }
 ```
 
-### Performance Tuning
+### Cache Configuration
 
-Adjust for high-performance workloads:
-
-```json
-{
-  "mcpServers": {
-    "agent-memory": {
-      "command": "node",
-      "args": [
-        "dist/index.js",
-        "--threads", "8",
-        "--cache-size", "200",
-        "--ttl", "600000"
-      ],
-      "env": { ... }
-    }
-  }
-}
-```
-
-Flags explained:
-- `--threads`: Parallel worker count (default: 4)
-- `--cache-size`: LRU cache max items (default: 100)
-- `--ttl`: Cache TTL in milliseconds (default: 300000)
+Use `MEMORY_CACHE_PATH` when the MCP server and CLI must share one cache file. The value must be an absolute path. Run `node dist/cli.js cache rebuild` after changing it.
 
 ---
 
@@ -188,47 +167,24 @@ Flags explained:
 
 ### Access Memory in Claude Conversations
 
-Once integrated, Claude automatically has access to memory tools:
+Once integrated, Claude can call the standard MCP memory tools directly through the configured server. Use prompts that tell Claude to search or save memories before making a decision.
 
-```typescript
-// Natural language queries work seamlessly
-const result = await ClaudeClient.ask({
-  query: "What were our decisions about React authentication last sprint?",
-  useMemory: true, // Auto-enables memory retrieval
-  limit: 5
-});
+```text
+Search for prior decisions about authentication and API conventions for this project.
+If a relevant memory exists, use it as context.
+If a new decision is made, save it with memory_add and include the project and tags.
 ```
 
-### Add New Memories Programmatically
+### Typical Memory Workflow
 
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
+- Search with `memory_search` for the relevant topic and `project` value.
+- Use `memory_get` for the full content of a specific result.
+- Save new knowledge with `memory_add` when the decision should persist.
+- Correct stale knowledge with `memory_update` rather than creating duplicates.
 
-await memoryPool.add({
-  title: 'React 19 Migration Decision',
-  content: 'Team decided to migrate to React 19 with concurrent features.',
-  metadata: {
-    projectId: 'frontend-app',
-    importance: 'high',
-    tags: ['react', 'migration', 'decision']
-  }
-});
-```
+### Cache Configuration
 
-### Search and Retrieve Context
-
-```typescript
-const context = await ClaudeClient.searchContext({
-  query: 'authentication error handling patterns',
-  filter: {
-    category: 'convention',
-    projectId: 'backend-api'
-  },
-  topK: 3
-});
-
-// Results automatically injected into conversation
-```
+Use `MEMORY_CACHE_PATH` when the MCP process and CLI must share a single cache file. The value must be an absolute path. Run `node dist/cli.js cache rebuild` after changing it.
 
 ---
 
@@ -392,4 +348,4 @@ After successful setup:
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1*

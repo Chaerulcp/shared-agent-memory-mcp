@@ -185,8 +185,8 @@ We provide complete integration setups for:
 | **Claude Code** | VS Code Extension | ✅ Ready | [Examples](examples/mcp-configs/claude-code.json) |
 | **GitHub Copilot CLI** | GitHub CLI | ✅ Ready | [Examples](examples/mcp-configs/copilot-cli.json) |
 | **OpenCode** | MCP Client | ✅ Ready | [Examples](examples/mcp-configs/opencode.json) |
-| **Cline** | Autonomous Agent | 🚧 Coming Soon | - |
-| **Gemini CLI** | Google AI | 🚧 Coming Soon | - |
+| **Cline** | Autonomous Agent | ✅ Ready | [Guide](docs/integrations/cline.md) |
+| **Gemini CLI** | Google AI | ✅ Ready | [Guide](docs/integrations/gemini-cli.md) |
 
 👉 **Setup guide for each client:** See sections below or visit [Client Integrations](docs/integrations/README.md) directory.
 

@@ -102,75 +102,43 @@ Expected output: `Overall: HEALTHY ✅`
 
 ## 🎯 Usage Examples
 
-### Query Memory from IDE
+### Query Memory from the IDE
 
-```typescript
-// In Antigravity Chat interface
-const context = await gemini.queryMemory({
-  query: "What authentication patterns did we implement?",
-  limit: 5,
-  projectId: 'backend-api'
-});
+Use the Antigravity chat to call the configured MCP tools directly. The normal pattern is:
+
+```text
+Search for previous decisions about authentication, project conventions, or deployment patterns.
+If the result is relevant, use it as the basis for the next step.
+If the decision is new, save it with memory_add so the team can reuse it later.
 ```
 
-### Add Decisions Programmatically
+### Add Durable Decisions
 
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
+When the team agrees on a convention or fix, save it as a durable memory using `memory_add` with a clear title and a project scope. This is the recommended way to keep knowledge available across future agent sessions.
 
-await memoryPool.add({
-  title: 'React 19 Migration Decision',
-  content: 'Team decided to migrate using concurrent features.',
-  metadata: {
-    importance: 'high',
-    tags: ['react', 'migration'],
-    createdBy: 'gemini-agent'
-  }
-});
-```
+### Multi-Project Setup
 
-### Smart Context Retrieval
-
-```typescript
-// Automatic context injection based on current task
-const relevantContext = await gemini.getContext({
-  currentFile: 'src/auth/login.tsx',
-  recentFiles: ['src/auth/profile.tsx'],
-  topK: 10,
-  filter: { category: 'convention' }
-});
-```
-
----
-
-## 🔧 Advanced Configuration
-
-### Multi-Dataset Support
+For separate project databases, define a separate MCP server or an environment-specific configuration with different `NOTION_DATABASE_ID` values.
 
 ```json
 {
-  "servers": {
-    "project-alpha": {
-      "databaseId": "alpha-db-id",
-      "contextPrefix": "alpha-"
+  "mcpServers": {
+    "project-alpha-memory": {
+      "command": "node",
+      "args": ["/absolute/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}",
+        "NOTION_DATABASE_ID": "alpha-db-id"
+      }
     },
-    "project-beta": {
-      "databaseId": "beta-db-id", 
-      "contextPrefix": "beta-"
+    "project-beta-memory": {
+      "command": "node",
+      "args": ["/absolute/path/to/shared-agent-memory-mcp/dist/index.js"],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}",
+        "NOTION_DATABASE_ID": "beta-db-id"
+      }
     }
-  }
-}
-```
-
-### Performance Tuning
-
-```json
-{
-  "agent-memory": {
-    "threads": 8,
-    "cacheSize": 200,
-    "ttl": 600000,
-    "timeout": 60000
   }
 }
 ```
@@ -232,4 +200,4 @@ node dist/cli.js doctor
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1*

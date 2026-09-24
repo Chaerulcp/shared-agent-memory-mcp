@@ -191,4 +191,4 @@ node dist/cli.js cache rebuild
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1*

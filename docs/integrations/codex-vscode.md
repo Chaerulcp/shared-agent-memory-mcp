@@ -108,44 +108,9 @@ Expected output: `Overall: HEALTHY ✅`
 
 ## 🎯 Usage Examples
 
-### Query Memory During Coding
+### Use Memory During Coding
 
-```typescript
-// In Codex chat interface within VSCode
-const context = await CodexClient.queryMemory({
-  query: "What authentication patterns should I use here?",
-  limit: 5,
-  currentFile: 'src/auth/login.tsx'
-});
-```
-
-### Add Development Decisions
-
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
-
-await memoryPool.add({
-  title: 'Error Handling Pattern',
-  content: 'Using custom Error classes with cause chaining for better debugging.',
-  metadata: {
-    projectId: 'frontend-app',
-    importance: 'medium',
-    tags: ['error-handling', 'best-practice'],
-    createdBy: 'codex-extension'
-  }
-});
-```
-
-### Smart Code Generation Context
-
-```typescript
-// Automatic context injection during code generation
-const relevantContext = await CodexClient.getContextForGeneration({
-  targetFile: 'api/routes/users.ts',
-  existingPatterns: ['error-handler', 'auth-middleware'],
-  topK: 10
-});
-```
+Ask Codex to invoke `memory_search` with the relevant query and optional `project` scope. Use `memory_add` for a durable decision and `memory_update` when an existing memory needs correction. This package exposes MCP tools only; it does not ship a separate JavaScript SDK.
 
 ---
 
@@ -160,38 +125,23 @@ For teams managing multiple projects:
   "mcpServers": {
     "project-alpha-memory": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "alpha-db-id"],
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "alpha-db-id" },
       "cwd": "/path/to/project-alpha"
     },
     "project-beta-memory": {
       "command": "node", 
-      "args": ["dist/index.js", "--database", "beta-db-id"],
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "beta-db-id" },
       "cwd": "/path/to/project-beta"
     }
   }
 }
 ```
 
-### Performance Tuning
+### Cache Configuration
 
-Optimize for large codebases:
-
-```json
-{
-  "agent-memory-codex": {
-    "threads": 8,
-    "cacheSize": 500,
-    "ttl": 600000,
-    "timeout": 60000
-  }
-}
-```
-
-Flags explained:
-- `--threads`: Parallel worker count (default: 4)
-- `--cache-size`: LRU cache max items (default: 100, increase for large repos)
-- `--ttl`: Cache TTL in milliseconds (default: 300000)
-- `--timeout`: Connection timeout (default: 30s)
+Use `MEMORY_CACHE_PATH` when the Codex MCP process and CLI must share one cache file. The value must be an absolute path. Client startup timeouts are configured by VS Code/Codex, not by this server.
 
 ### Workspace-Specific Settings
 
@@ -201,8 +151,7 @@ Configure per-workspace (place in `.vscode/settings.json`):
 {
   "mcpServers.agent-memory-codex.args": [
     "dist/index.js",
-    "--workspace", "${workspaceFolder}",
-    "--database", "project-specific-db"
+    "--workspace", "${workspaceFolder}"
   ]
 }
 ```
@@ -211,44 +160,9 @@ Configure per-workspace (place in `.vscode/settings.json`):
 
 ## 🔄 VSCode-Specific Features
 
-### Live Context Updates
+### VS Code Boundaries
 
-Real-time memory updates as you type:
-
-```typescript
-// Enable live context monitoring
-await CodexClient.enableLiveContext({
-  watchFiles: true,
-  updateInterval: 5000, // Every 5 seconds
-  relevanceThreshold: 0.7
-});
-```
-
-### Memory-Based Suggestions
-
-Get smarter code suggestions based on history:
-
-```typescript
-// Enhance suggestions with memory context
-await CodexClient.enhanceSuggestions({
-  memoryEnabled: true,
-  prioritizeRecent: true,
-  filterByProject: true
-});
-```
-
-### Collaborative Coding
-
-Share memory across team members' Codex instances:
-
-```typescript
-// Enable collaborative mode
-await CodexClient.enableCollaboration({
-  syncEnabled: true,
-  conflictResolution: 'merge',
-  broadcastDecisions: true
-});
-```
+Memory is available when Codex invokes the configured MCP tools. The server does not monitor files, inject context automatically, or expose a separate collaboration SDK. Shared access comes from the configured Notion database.
 
 ---
 
@@ -422,4 +336,4 @@ After successful setup:
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0 | Codex VSCode Compatibility: Latest*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1 | Codex VSCode Compatibility: Latest*

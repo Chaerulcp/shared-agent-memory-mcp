@@ -207,28 +207,9 @@ before: {
 "@
 ```
 
-### Performance Tuning
+### Cache Configuration
 
-Optimize for heavy CLI usage:
-
-```json
-{
-  "agent-memory-cli": {
-    "threads": 8,
-    "cacheSize": 500,
-    "ttl": 600000,
-    "timeout": 90000,
-    "retries": 5
-  }
-}
-```
-
-Flags explained:
-- `--threads`: Parallel worker count (default: 4)
-- `--cache-size`: LRU cache max items (default: 100, increase for large repos)
-- `--ttl`: Cache TTL in milliseconds (default: 300000)
-- `--timeout`: Connection timeout (default: 30s)
-- `--retries`: Retry attempts on failure (default: 3)
+Use `MEMORY_CACHE_PATH` when the Codex MCP process and CLI must share one cache file. The value must be an absolute path. Client startup timeouts and retries are configured by Codex, not by this server.
 
 ---
 
@@ -440,4 +421,4 @@ After successful setup:
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0 | Codex CLI Compatibility: 2026+*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1 | Codex CLI Compatibility: 2026+*

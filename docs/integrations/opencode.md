@@ -11,7 +11,7 @@
 ## 🎯 Features
 
 - ✅ **Collaborative Memory Sharing** - Multiple developers access same memory store
-- ✅ **Real-time Sync** - Changes propagate instantly across team
+- ✅ **Scheduled Sync** - Run `sync` or `watch` to mirror Notion changes to Obsidian
 - ✅ **Context Auto-management** - Smart recall based on project context
 - ✅ **Open-source Friendly** - Full transparency, customizable integration
 
@@ -101,4 +101,4 @@ await agentMemory.add({
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1*

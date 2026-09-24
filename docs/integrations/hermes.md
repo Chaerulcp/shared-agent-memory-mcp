@@ -65,8 +65,7 @@ NOTION_DATABASE_ID=your-database-id-here
 
 # Optional settings
 OBSIDIAN_VAULT_PATH=C:/Users/your-user/Documents/ObsidianVault
-CACHE_TTL_MS=300000
-CONCURRENT_THREADS=4
+MEMORY_CACHE_PATH=C:/absolute/path/to/memory.sqlite
 ```
 
 ⚠️ **Security:** Never commit `.env` files to Git! Protected by `.gitignore`.
@@ -119,48 +118,15 @@ Expected output: `Overall: HEALTHY ✅`
 
 ## 🎯 Usage Examples
 
-### Access Memory in Hermes Conversations
+### Use Memory in Hermes Conversations
 
-Once integrated, Hermes automatically has access to memory tools:
+After the server is connected, ask Hermes to invoke the MCP tools directly. For example:
 
-```typescript
-// Natural language queries work seamlessly
-const context = await HermesClient.queryMemory({
-  query: "What were our authentication decisions last sprint?",
-  limit: 5,
-  filter: { projectId: 'backend-api' }
-});
+- Search with `memory_search` using `query: "authentication decisions"` and `project: "backend-api"`.
+- Add with `memory_add` using a title, concise content, `agent: "hermes"`, and an appropriate category.
+- Retrieve complete content with `memory_get` when a compact search result is insufficient.
 
-// Results automatically injected into conversation
-```
-
-### Query Smart Context
-
-```typescript
-// Get relevant memories based on current task
-const relevantContext = await HermesClient.getRelevantContext({
-  currentTask: 'implementing oauth2 flow',
-  topK: 10,
-  prioritize: ['recent', 'importance', 'project']
-});
-```
-
-### Add New Memories Programmatically
-
-```typescript
-import { memoryPool } from '@chaerulcp/agent-memory-mcp';
-
-await memoryPool.add({
-  title: 'Database Schema Decision',
-  content: 'Using PostgreSQL with JSONB fields for flexible attributes.',
-  metadata: {
-    projectId: 'user-service',
-    importance: 'high',
-    tags: ['database', 'architecture'],
-    createdBy: 'hermes-agent'
-  }
-});
-```
+There is no separate JavaScript SDK in this package; use the MCP tools exposed by your Hermes client configuration.
 
 ---
 
@@ -175,87 +141,31 @@ For organizations managing multiple projects:
   "mcpServers": {
     "project-alpha": {
       "command": "node",
-      "args": ["dist/index.js", "--database", "alpha-db-id"],
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "alpha-db-id" },
       "cwd": "/path/to/project-alpha"
     },
     "project-beta": {
       "command": "node", 
-      "args": ["dist/index.js", "--database", "beta-db-id"],
+      "args": ["dist/index.js"],
+      "env": { "NOTION_TOKEN": "...", "NOTION_DATABASE_ID": "beta-db-id" },
       "cwd": "/path/to/project-beta"
     }
   }
 }
 ```
 
-### Performance Tuning
+### Cache Configuration
 
-Optimize for high-performance workloads:
-
-```json
-{
-  "agent-memory": {
-    "command": "node",
-    "args": [
-      "dist/index.js",
-      "--threads", "8",
-      "--cache-size", "200",
-      "--ttl", "600000"
-    ],
-    "timeout": 60000,
-    "retries": 3
-  }
-}
-```
-
-Flags explained:
-- `--threads`: Parallel worker count (default: 4)
-- `--cache-size`: LRU cache max items (default: 100)
-- `--ttl`: Cache TTL in milliseconds (default: 300000)
-- `--timeout`: Connection timeout (default: 30s)
-- `--retries`: Retry attempts on failure (default: 3)
+Use `MEMORY_CACHE_PATH` when the Hermes MCP process and CLI must share one cache file. The value must be an absolute path. Client startup timeouts and retries are configured by Hermes, not by this server.
 
 ---
 
 ## 🔄 Hermes-Specific Features
 
-### Context Inheritance
+### Hermes-Specific Boundaries
 
-Hermes can inherit context from previous conversations:
-
-```typescript
-// Enable contextual inheritance
-await HermesClient.enableContextInheritance({
-  sourceSessions: 5,
-  relevanceThreshold: 0.75,
-  includeDecisions: true
-});
-```
-
-### Memory Persistence
-
-Automatic memory persistence across Hermes sessions:
-
-```typescript
-// Configure persistence behavior
-await HermesClient.configurePersistence({
-  autoSave: true,
-  saveInterval: 60000, // Every minute
-  backupOnSync: true
-});
-```
-
-### Collaborative Memory
-
-Share memory between multiple Hermes instances:
-
-```typescript
-// Enable collaborative mode
-await HermesClient.enableCollaboration({
-  syncEnabled: true,
-  conflictResolution: 'merge',
-  broadcastEvents: true
-});
-```
+This integration provides the standard six MCP memory tools. It does not add Hermes session inheritance, automatic transcript persistence, or a separate collaboration SDK. Shared access comes from the configured Notion database; Obsidian mirroring requires an explicit `sync` or `watch` process.
 
 ---
 
@@ -418,4 +328,4 @@ After successful setup:
 
 **Copyright © 2026-present** - All rights reserved globally.
 
-*Last Updated: 2026-09-03 | Version: 1.4.0 | Hermes Compatibility: vLatest*
+*Last reviewed: 2026-09-24 | Package version: 1.6.1 | Hermes Compatibility: vLatest*
